@@ -13,4 +13,6 @@ public class NativeAssembler {
      * @return String con el resultado (Intel Hex) o error.
      */
     public native String assemble(String sourceCode);
+
+    public native String getListing();
 }
