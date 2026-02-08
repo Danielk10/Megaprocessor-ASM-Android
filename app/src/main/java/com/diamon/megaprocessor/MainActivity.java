@@ -147,37 +147,28 @@ public class MainActivity extends AppCompatActivity {
                 int len = line.length();
                 // Standard Intel HEX: :LLAAAATT[DD...]CC
                 // Min length: :LLAAAATTCC (1+2+4+2+2 = 11 chars)
+
                 if (len >= 11) {
-                    // :LLAAAA (Prefix) -> Blue
-                    // Length 1 (:) + 2 (LL) + 4 (AAAA) = 7 chars usually, but user image shows 0000
-                    // also blue?
-                    // Let's standard parse: : LL AAAA TT DD... CC
-                    // Indices:
-                    // : 0
-                    // LL 1-3
-                    // AAAA 3-7
-                    // TT 7-9
-                    // Data 9...(len-2)
-                    // CC (len-2)...len
+                    // :LLAAAATT (Prefix) -> Blue (Indices 0 to 9)
+                    // This covers : (1), Length (2), Address (4), Type (2) = 9 chars total
+                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLUE),
+                            start, start + 9, 0);
 
-                    // User image: ":20000000" -> All Blue?
-                    // Let's assume : + LL + AAAA is Blue (#0000FF)
-                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLUE), start,
-                            start + 9, 0);
+                    // Data -> Black (From index 9 up to checksum)
+                    // Only apply if there is data (len > 11)
+                    if (len > 11) {
+                        builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLACK),
+                                start + 9, start + len - 2, 0);
+                    }
 
-                    // TT (Record Type) -> Orange (#FF8C00)
-                    builder.setSpan(
-                            new android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FF8C00")),
-                            start + 9, start + 11, 0);
-
-                    // Data -> Black (Default, or explicit)
-                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLACK),
-                            start + 11, start + len - 2, 0);
-
-                    // CC (Checksum) -> Green (#008000)
+                    // CC (Checksum) -> Green (Last 2 chars)
                     builder.setSpan(
                             new android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#008000")),
                             start + len - 2, start + len, 0);
+                } else {
+                    // Invalid/Short line - just color it gray or black to avoid crash
+                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.GRAY),
+                            start, start + len, 0);
                 }
             }
         }
