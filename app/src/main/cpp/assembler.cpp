@@ -275,6 +275,10 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             if (evaluateExpression(valStr, val)) {
                 currentAddress = (uint16_t)val;
             }
+        } else if (mnemonic == "INCLUDE") {
+             // Ignore for now, assuming code is self-contained or user manually merges
+             // In a full implementation, we would recursively parse the included file
+             continue;
         } else if (mnemonic == "EQU") {
              // Handled better in pre-pass usually, but here we check syntax
              // Label EQU Value
@@ -410,6 +414,10 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
              inst.isDirective = true;
              inst.address = currentAddress; // Update to new org
          } 
+         else if (mnemonic == "INCLUDE") {
+             inst.isDirective = true;
+             // No bytes, just skip
+         }
          else if (mnemonic == "DB") {
              std::string args;
              std::getline(ss, args);
