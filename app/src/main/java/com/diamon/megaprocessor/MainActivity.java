@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
             byte[] bufferHex = new byte[sizeHex];
             isHex.read(bufferHex);
             isHex.close();
-            tvOriginalHex.setText(new String(bufferHex));
+            tvOriginalHex.setText(colorizeHex(new String(bufferHex)));
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -88,10 +88,12 @@ public class MainActivity extends AppCompatActivity {
     private void assembleCode() {
         String source = etSource.getText().toString();
         String result = assembler.assemble(source);
-        tvOutput.setText(result);
+
         if (result.startsWith("ERROR")) {
+            tvOutput.setText(result);
             Toast.makeText(this, "Assembly Failed", Toast.LENGTH_SHORT).show();
         } else {
+            tvOutput.setText(colorizeHex(result));
             Toast.makeText(this, "Assembly Successful", Toast.LENGTH_SHORT).show();
         }
     }
@@ -127,5 +129,58 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Error saving " + fileName, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // Helper for Notepad++ style syntax highlighting
+    private android.text.SpannableStringBuilder colorizeHex(String hexContent) {
+        android.text.SpannableStringBuilder builder = new android.text.SpannableStringBuilder();
+        String[] lines = hexContent.split("\n");
+
+        for (String line : lines) {
+            if (line.isEmpty())
+                continue;
+            int start = builder.length();
+            builder.append(line);
+            builder.append("\n"); // Restore newline
+
+            if (line.startsWith(":")) {
+                int len = line.length();
+                // Standard Intel HEX: :LLAAAATT[DD...]CC
+                // Min length: :LLAAAATTCC (1+2+4+2+2 = 11 chars)
+                if (len >= 11) {
+                    // :LLAAAA (Prefix) -> Blue
+                    // Length 1 (:) + 2 (LL) + 4 (AAAA) = 7 chars usually, but user image shows 0000
+                    // also blue?
+                    // Let's standard parse: : LL AAAA TT DD... CC
+                    // Indices:
+                    // : 0
+                    // LL 1-3
+                    // AAAA 3-7
+                    // TT 7-9
+                    // Data 9...(len-2)
+                    // CC (len-2)...len
+
+                    // User image: ":20000000" -> All Blue?
+                    // Let's assume : + LL + AAAA is Blue (#0000FF)
+                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLUE), start,
+                            start + 9, 0);
+
+                    // TT (Record Type) -> Orange (#FF8C00)
+                    builder.setSpan(
+                            new android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FF8C00")),
+                            start + 9, start + 11, 0);
+
+                    // Data -> Black (Default, or explicit)
+                    builder.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.BLACK),
+                            start + 11, start + len - 2, 0);
+
+                    // CC (Checksum) -> Green (#008000)
+                    builder.setSpan(
+                            new android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#008000")),
+                            start + len - 2, start + len, 0);
+                }
+            }
+        }
+        return builder;
     }
 }
