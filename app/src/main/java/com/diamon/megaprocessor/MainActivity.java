@@ -20,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
     private NativeAssembler assembler;
     private EditText etSource;
     private TextView tvOutput;
+    private TextView tvOriginalHex;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
         etSource = findViewById(R.id.etSourceCode);
         tvOutput = findViewById(R.id.tvOutput);
+        tvOriginalHex = findViewById(R.id.tvOriginalHex);
         Button btnLoad = findViewById(R.id.btnLoadExample);
         Button btnAssemble = findViewById(R.id.btnAssemble);
         Button btnExport = findViewById(R.id.btnExport);
@@ -58,17 +60,28 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadExample() {
         try {
+            // Load Assembly
             InputStream is = getAssets().open("example.asm");
             int size = is.available();
             byte[] buffer = new byte[size];
             is.read(buffer);
             is.close();
             etSource.setText(new String(buffer));
+
+            // Load Original Hex
+            InputStream isHex = getAssets().open("example.hex");
+            int sizeHex = isHex.available();
+            byte[] bufferHex = new byte[sizeHex];
+            isHex.read(bufferHex);
+            isHex.close();
+            tvOriginalHex.setText(new String(bufferHex));
+
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Error loading example from Assets", Toast.LENGTH_SHORT).show();
             // Fallback content if file missing
-            etSource.setText("// Example Code\nSTART: MOV R1, R0\nMOV R2, R1\nNOP\n");
+            etSource.setText("// Example Code missing\n");
+            tvOriginalHex.setText("// Original HEX missing\n");
         }
     }
 

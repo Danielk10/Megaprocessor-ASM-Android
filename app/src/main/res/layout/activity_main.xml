@@ -56,24 +56,61 @@
         android:inputType="textMultiLine|textNoSuggestions"
         android:scrollbars="vertical" />
         
-    <ScrollView
-        android:layout_width="0dp"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:orientation="vertical"
         android:background="#EEEEEE"
         app:layout_constraintTop_toBottomOf="@id/etSourceCode"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
-        
+
         <TextView
-            android:id="@+id/tvOutput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:textSize="12sp"
-            android:fontFamily="monospace"
-            android:text="Output will appear here..." 
-            android:textColor="#000000"/>
-    </ScrollView>
+            android:text="Generated HEX:"
+            android:textStyle="bold"
+            android:padding="4dp"
+            android:background="#CCCCCC"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <TextView
+                android:id="@+id/tvOutput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:text="Generated Output..." 
+                android:textColor="#0000AA"/>
+        </ScrollView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Original HEX (Reference):"
+            android:textStyle="bold"
+            android:padding="4dp"
+            android:background="#CCCCCC"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <TextView
+                android:id="@+id/tvOriginalHex"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:text="Original Hex will appear here..." 
+                android:textColor="#005500"/>
+        </ScrollView>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
