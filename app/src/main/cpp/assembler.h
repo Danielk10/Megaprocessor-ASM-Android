@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <cstdint>
+#include <sstream>
 
 // Estructuras de datos
 // Enum for symbol types
@@ -53,6 +54,13 @@ private:
     
     // Utilitarios
     int parseRegister(const std::string& token);
+    
+    // Get ALU opcode based on mnemonic and registers
+    uint8_t getALUOpcode(const std::string& mnemonic, int ra, int rb);
+    
+    // Helper to encode Load/Store instructions
+    void encodeLoadStore(const std::string& mnemonic, std::stringstream& ss,
+                        std::vector<uint8_t>& bytes, int lineNum, std::string& error);
     
     // Evaluador de expresiones
     bool evaluateExpression(const std::string& expr, int32_t& result);
