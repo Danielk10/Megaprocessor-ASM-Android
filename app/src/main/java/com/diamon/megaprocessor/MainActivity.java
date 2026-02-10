@@ -1,9 +1,10 @@
-
 package com.diamon.megaprocessor;
 
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -14,6 +15,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,6 +24,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText etSource;
     private TextView tvOutput;
     private TextView tvOriginalHex;
+    private ExecutorService executorService;
+    private Handler mainHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         assembler = new NativeAssembler();
+        executorService = Executors.newSingleThreadExecutor();
+        mainHandler = new Handler(Looper.getMainLooper());
 
         etSource = findViewById(R.id.etSourceCode);
         tvOutput = findViewById(R.id.tvOutput);
@@ -59,63 +66,113 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadExample() {
-        try {
-            // Load Assembly
-            InputStream is = getAssets().open("example.asm");
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-            etSource.setText(new String(buffer));
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Load Assembly
+                    InputStream is = getAssets().open("example.asm");
+                    int size = is.available();
+                    byte[] buffer = new byte[size];
+                    is.read(buffer);
+                    is.close();
+                    final String asmContent = new String(buffer);
 
-            // Load Original Hex
-            InputStream isHex = getAssets().open("example.hex");
-            int sizeHex = isHex.available();
-            byte[] bufferHex = new byte[sizeHex];
-            isHex.read(bufferHex);
-            isHex.close();
-            tvOriginalHex.setText(colorizeHex(new String(bufferHex)));
+                    // Load Original Hex
+                    InputStream isHex = getAssets().open("example.hex");
+                    int sizeHex = isHex.available();
+                    byte[] bufferHex = new byte[sizeHex];
+                    isHex.read(bufferHex);
+                    isHex.close();
+                    final String hexContent = new String(bufferHex);
+                    
+                    // Colorize in background
+                    final android.text.SpannableStringBuilder colorized = colorizeHex(hexContent);
 
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Error loading example from Assets", Toast.LENGTH_SHORT).show();
-            // Fallback content if file missing
-            etSource.setText("// Example Code missing\n");
-            tvOriginalHex.setText("// Original HEX missing\n");
-        }
+                    // Update UI on main thread
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            etSource.setText(asmContent);
+                            tvOriginalHex.setText(colorized);
+                        }
+                    });
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Error loading example from Assets", Toast.LENGTH_SHORT).show();
+                            etSource.setText("// Example Code missing\n");
+                            tvOriginalHex.setText("// Original HEX missing\n");
+                        }
+                    });
+                }
+            }
+        });
     }
 
     private void assembleCode() {
-        String source = etSource.getText().toString();
-        String result = assembler.assemble(source);
+        final String source = etSource.getText().toString();
+        
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                final String result = assembler.assemble(source);
 
-        if (result.startsWith("ERROR")) {
-            tvOutput.setText(result);
-            Toast.makeText(this, "Assembly Failed", Toast.LENGTH_SHORT).show();
-        } else {
-            tvOutput.setText(colorizeHex(result));
-            Toast.makeText(this, "Assembly Successful", Toast.LENGTH_SHORT).show();
-        }
+                if (result.startsWith("ERROR")) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            tvOutput.setText(result);
+                            Toast.makeText(MainActivity.this, "Assembly Failed", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } else {
+                    // Colorize in background
+                    final android.text.SpannableStringBuilder colorized = colorizeHex(result);
+                    
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            tvOutput.setText(colorized);
+                            Toast.makeText(MainActivity.this, "Assembly Successful", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }
+        });
     }
 
     private void exportFiles() {
-        String hex = tvOutput.getText().toString();
-        String lst = assembler.getListing();
+        final String hex = tvOutput.getText().toString();
+        final String lst = assembler.getListing();
 
         if (hex.isEmpty() || hex.startsWith("ERROR")) {
             Toast.makeText(this, "Please assemble successfully first!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Save to App Specific External Storage (No permissions needed)
-        saveFile("output.hex", hex);
-        saveFile("output.lst", lst);
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                // Save to App Specific External Storage (No permissions needed)
+                saveFile("output.hex", hex);
+                saveFile("output.lst", lst);
+            }
+        });
     }
 
     private void saveFile(String fileName, String content) {
         File path = getExternalFilesDir(null); // App specific external storage
         if (path == null) {
-            Toast.makeText(this, "External storage not available", Toast.LENGTH_SHORT).show();
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "External storage not available", Toast.LENGTH_SHORT).show();
+                }
+            });
             return;
         }
         File file = new File(path, fileName);
@@ -124,10 +181,21 @@ public class MainActivity extends AppCompatActivity {
             FileOutputStream fos = new FileOutputStream(file);
             fos.write(content.getBytes());
             fos.close();
-            Toast.makeText(this, "Saved to " + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            final String successMsg = "Saved to " + file.getAbsolutePath();
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, successMsg, Toast.LENGTH_LONG).show();
+                }
+            });
         } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(this, "Error saving " + fileName, Toast.LENGTH_SHORT).show();
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Error saving " + fileName, Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
@@ -173,5 +241,13 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return builder;
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
     }
 }
