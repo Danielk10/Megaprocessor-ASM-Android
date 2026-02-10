@@ -1,15 +1,5 @@
 // Start with shared definitions...
-// include "Megaprocessor_defs.asm";  // INCLUDE not yet supported
-
-// Hardware definitions needed for this program
-INT_RAM_START         EQU 0x8000;
-INT_RAM_LEN           EQU 0x4B00;
-INT_RAM_BYTES_ACROSS  EQU 4;
-GEN_IO_INPUT          EQU 0xD000;
-IO_SWITCH_FLAG_SQUARE EQU 0x0400;
-IO_SWITCH_FLAG_R1     EQU 0x0010;
-IO_SWITCH_FLAG_LEFT   EQU 0x0004;
-IO_SWITCH_FLAG_RIGHT  EQU 0x0008;
+include "Megaprocessor_defs.asm";
 
 // *************************************
 // tables and variables....
