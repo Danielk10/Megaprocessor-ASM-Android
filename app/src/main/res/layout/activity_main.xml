@@ -39,6 +39,23 @@
 
     </LinearLayout>
 
+    <!-- Status TextView to replace Toasts -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:background="#F0F0F0"
+        android:gravity="center"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/button_panel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Status message"
+        tools:visibility="visible" />
+
     <EditText
         android:id="@+id/etSourceCode"
         android:layout_width="0dp"
@@ -50,7 +67,7 @@
         android:fontFamily="monospace"
         android:background="#FFFFFF"
         app:layout_constraintHeight_percent="0.4"
-        app:layout_constraintTop_toBottomOf="@id/button_panel"
+        app:layout_constraintTop_toBottomOf="@id/tvStatus"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:inputType="textMultiLine|textNoSuggestions"
