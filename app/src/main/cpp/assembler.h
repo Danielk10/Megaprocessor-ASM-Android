@@ -7,16 +7,14 @@
 #include <cstdint>
 #include <sstream>
 
-// Estructuras de datos
-// Enum for symbol types
 enum SymbolType {
     LABEL,
-    CONSTANT // For EQU
+    CONSTANT
 };
 
 struct Symbol {
     std::string name;
-    int32_t value; // Changed to int32 for calculations
+    int32_t value;
     SymbolType type;
     bool isDefined;
 };
@@ -33,11 +31,7 @@ struct Instruction {
 class Assembler {
 public:
     Assembler();
-    
-    // Método principal que recibe el código fuente y devuelve el resultado HEX
     std::string assemble(const std::string& sourceCode);
-    
-    // Devuelve el listing generado
     std::string getListing() const;
 
 private:
@@ -46,30 +40,20 @@ private:
     uint16_t currentAddress;
     std::string listingOutput;
     
-    // Pasada 1: Definición de símbolos
     bool pass1(const std::vector<std::string>& lines, std::string& error);
-    
-    // Pasada 2: Generación de código
     bool pass2(const std::vector<std::string>& lines, std::string& error);
     
-    // Utilitarios
     int parseRegister(const std::string& token);
-    
-    // Get ALU opcode based on mnemonic and registers
     uint8_t getALUOpcode(const std::string& mnemonic, int ra, int rb);
     
-    // Helper to encode Load/Store instructions
-    void encodeLoadStore(const std::string& mnemonic, std::stringstream& ss,
+    void encodeLoadStore(const std::string& mnemonic, const std::string& op1, const std::string& op2,
                         std::vector<uint8_t>& bytes, int lineNum, std::string& error);
     
-    // Evaluador de expresiones
     bool evaluateExpression(const std::string& expr, int32_t& result);
-    // Helpers recursivos para parsing
     int32_t parseExpression(const char*& p);
     int32_t parseTerm(const char*& p);
     int32_t parseFactor(const char*& p);
     
-    // Mapa de opcodes
     std::map<std::string, uint8_t> opcodeMap;
     void initOpcodes();
     

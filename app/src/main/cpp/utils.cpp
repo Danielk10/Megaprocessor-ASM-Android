@@ -5,7 +5,7 @@
 std::string trim(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n");
     if (std::string::npos == first) {
-        return str;
+        return "";
     }
     size_t last = str.find_last_not_of(" \t\r\n");
     return str.substr(first, (last - first + 1));
@@ -13,7 +13,7 @@ std::string trim(const std::string& str) {
 
 std::string toUpper(const std::string& str) {
     std::string result = str;
-    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c){ return std::toupper(c); });
     return result;
 }
 
@@ -22,9 +22,11 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     std::string token;
     std::istringstream tokenStream(str);
     while (std::getline(tokenStream, token, delimiter)) {
-        if (!token.empty()) {
-            tokens.push_back(token);
-        }
+        tokens.push_back(trim(token));
+    }
+    // Handle case where string ends with delimiter
+    if (!str.empty() && str.back() == delimiter) {
+        tokens.push_back("");
     }
     return tokens;
 }
