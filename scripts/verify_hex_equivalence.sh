@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASM_FILE="${ROOT_DIR}/tic_tac_toe_2.asm"
 INCLUDE_FILE="${ROOT_DIR}/Megaprocessor_defs.asm"
 REFERENCE_HEX="${ROOT_DIR}/tic_tac_toe_2.hex"
+ASSET_HEX="${ROOT_DIR}/app/src/main/assets/example.hex"
 
 if ! command -v g++ >/dev/null 2>&1; then
   echo "FAIL"
@@ -12,7 +13,7 @@ if ! command -v g++ >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f "${ASM_FILE}" || ! -f "${INCLUDE_FILE}" || ! -f "${REFERENCE_HEX}" ]]; then
+if [[ ! -f "${ASM_FILE}" || ! -f "${INCLUDE_FILE}" || ! -f "${REFERENCE_HEX}" || ! -f "${ASSET_HEX}" ]]; then
   echo "FAIL"
   echo "Diagnóstico: faltan archivos de entrada requeridos (.asm/.hex/.asm include)." >&2
   exit 1
@@ -38,7 +39,6 @@ cat > "${workdir}/assembler_cli.cpp" <<'CPP'
 #include <iostream>
 #include <iterator>
 #include <map>
-#include <sstream>
 #include <string>
 
 #include "assembler.h"
@@ -90,6 +90,7 @@ CPP
 cli_bin="${workdir}/assembler_cli"
 assembled_hex="${workdir}/tic_tac_toe_2.generated.hex"
 normalized_expected="${workdir}/expected.normalized.hex"
+normalized_asset="${workdir}/asset.normalized.hex"
 normalized_generated="${workdir}/generated.normalized.hex"
 
 g++ -std=c++17 -O2 -I"${workdir}" -I"${ROOT_DIR}/app/src/main/cpp" \
@@ -107,15 +108,26 @@ normalize_hex() {
 }
 
 normalize_hex "${REFERENCE_HEX}" "${normalized_expected}"
+normalize_hex "${ASSET_HEX}" "${normalized_asset}"
 normalize_hex "${assembled_hex}" "${normalized_generated}"
 
-if cmp -s "${normalized_expected}" "${normalized_generated}"; then
+if ! cmp -s "${normalized_expected}" "${normalized_asset}"; then
+  echo "FAIL"
+  echo "Diagnóstico: el HEX de assets no coincide con el HEX de referencia en raíz."
+  echo "- Referencia: ${REFERENCE_HEX}"
+  echo "- Assets: ${ASSET_HEX}"
+  echo "- diff -u (referencia vs assets):"
+  diff -u "${normalized_expected}" "${normalized_asset}" || true
+  exit 1
+fi
+
+if cmp -s "${normalized_asset}" "${normalized_generated}"; then
   echo "PASS"
   exit 0
 fi
 
-first_diff_line="$(awk 'NR==FNR{a[NR]=$0; max=NR; next} {b[NR]=$0; if (NR>max) max=NR} END {for (i=1;i<=max;i++) if (a[i] != b[i]) {print i; exit}}' "${normalized_expected}" "${normalized_generated}")"
-expected_line="$(sed -n "${first_diff_line}p" "${normalized_expected}")"
+first_diff_line="$(awk 'NR==FNR{a[NR]=$0; max=NR; next} {b[NR]=$0; if (NR>max) max=NR} END {for (i=1;i<=max;i++) if (a[i] != b[i]) {print i; exit}}' "${normalized_asset}" "${normalized_generated}")"
+expected_line="$(sed -n "${first_diff_line}p" "${normalized_asset}")"
 generated_line="$(sed -n "${first_diff_line}p" "${normalized_generated}")"
 
 extract_intel_hex_address() {
@@ -139,6 +151,6 @@ echo "- Dirección Intel HEX (registro): ${record_address}"
 echo "- Esperado: ${expected_line:-<EOF>}"
 echo "- Generado: ${generated_line:-<EOF>}"
 echo "- diff -u (normalizado):"
-diff -u "${normalized_expected}" "${normalized_generated}" || true
+diff -u "${normalized_asset}" "${normalized_generated}" || true
 
 exit 1

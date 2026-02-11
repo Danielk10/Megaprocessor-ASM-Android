@@ -173,6 +173,10 @@ int32_t Assembler::parseFactor(const char*& p) {
         int32_t x = parseFactor(p);
         return (op == '+') ? x : -x;
     }
+    if (*p == '$') {
+        p++;
+        return static_cast<int32_t>(currentAddress);
+    }
     if (isdigit(*p)) {
         std::string numStr;
         if (*p == '0' && (toupper(*(p+1)) == 'X')) {
@@ -180,6 +184,12 @@ int32_t Assembler::parseFactor(const char*& p) {
             while (isxdigit(*p)) numStr += *p++;
             if (numStr.empty()) throw std::runtime_error("Invalid hex literal");
             return std::stoi(numStr, nullptr, 16);
+        }
+        if (*p == '0' && (toupper(*(p+1)) == 'B')) {
+            p += 2;
+            while (*p == '0' || *p == '1') numStr += *p++;
+            if (numStr.empty()) throw std::runtime_error("Invalid binary literal");
+            return std::stoi(numStr, nullptr, 2);
         }
         while (isdigit(*p)) numStr += *p++;
         return std::stoi(numStr);
@@ -394,6 +404,33 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             std::string args; std::getline(ss, args);
             std::vector<std::string> vals = split(args, ',');
             size = std::max(1, (int)vals.size()) * 2;
+        } else if (mnemonic == "DL") {
+            std::string args; std::getline(ss, args);
+            std::vector<std::string> vals = split(args, ',');
+            size = std::max(1, (int)vals.size()) * 4;
+        } else if (mnemonic == "DM") {
+            std::string args; std::getline(ss, args);
+            std::string t = trim(args);
+            if (t.size() >= 2 && ((t.front() == '"' && t.back() == '"') || (t.front() == '\'' && t.back() == '\''))) {
+                size = std::max(1, (int)t.substr(1, t.size() - 2).size());
+            } else {
+                size = 1;
+            }
+        } else if (mnemonic == "DS") {
+            std::string args; std::getline(ss, args);
+            std::vector<std::string> vals = split(args, ',');
+            int32_t count = 1;
+            if (!vals.empty() && !trim(vals[0]).empty()) {
+                if (!evaluateExpression(vals[0], count)) {
+                    error = "Invalid DS count at line " + std::to_string(lineNum) + ": " + expressionError;
+                    return false;
+                }
+            }
+            if (count < 0) {
+                error = "Negative DS count at line " + std::to_string(lineNum);
+                return false;
+            }
+            size = static_cast<int>(count);
         } else if (mnemonic.length() == 3 && mnemonic[0] == 'B') {
             size = 2;
         } else if (mnemonic == "JMP" || mnemonic == "JSR") {
@@ -471,10 +508,11 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             currentAddress = (uint16_t)val;
             inst.address = currentAddress;
             inst.isDirective = true;
-        } else if (mnemonic == "DB" || mnemonic == "DW") {
+        } else if (mnemonic == "DB" || mnemonic == "DW" || mnemonic == "DL") {
             if (opList.empty()) {
                 bytes.push_back(0x00);
-                if (mnemonic == "DW") bytes.push_back(0x00);
+                if (mnemonic == "DW" || mnemonic == "DL") bytes.push_back(0x00);
+                if (mnemonic == "DL") { bytes.push_back(0x00); bytes.push_back(0x00); }
             } else {
                 for (auto& v : opList) {
                     int32_t val;
@@ -483,9 +521,42 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                         return false;
                     }
                     bytes.push_back((uint8_t)(val & 0xFF));
-                    if (mnemonic == "DW") bytes.push_back((uint8_t)((val >> 8) & 0xFF));
+                    if (mnemonic == "DW" || mnemonic == "DL") bytes.push_back((uint8_t)((val >> 8) & 0xFF));
+                    if (mnemonic == "DL") {
+                        bytes.push_back((uint8_t)((val >> 16) & 0xFF));
+                        bytes.push_back((uint8_t)((val >> 24) & 0xFF));
+                    }
                 }
             }
+        } else if (mnemonic == "DM") {
+            std::string t = trim(rest);
+            if (t.size() >= 2 && ((t.front() == '"' && t.back() == '"') || (t.front() == '\'' && t.back() == '\''))) {
+                std::string content = t.substr(1, t.size() - 2);
+                for (char c : content) bytes.push_back((uint8_t)c);
+                if (content.empty()) bytes.push_back(0x00);
+            } else {
+                bytes.push_back(0x00);
+            }
+        } else if (mnemonic == "DS") {
+            int32_t count = 0;
+            int32_t fill = 0;
+            if (!opList.empty() && !trim(opList[0]).empty()) {
+                if (!evaluateExpression(opList[0], count)) {
+                    error = "Invalid DS count at line " + std::to_string(lineNum) + ": " + expressionError;
+                    return false;
+                }
+            }
+            if (opList.size() > 1 && !trim(opList[1]).empty()) {
+                if (!evaluateExpression(opList[1], fill)) {
+                    error = "Invalid DS fill at line " + std::to_string(lineNum) + ": " + expressionError;
+                    return false;
+                }
+            }
+            if (count < 0) {
+                error = "Negative DS count at line " + std::to_string(lineNum);
+                return false;
+            }
+            for (int32_t i = 0; i < count; ++i) bytes.push_back((uint8_t)(fill & 0xFF));
         } else if (opcodeMap.count(mnemonic) && mnemonic[0] == 'B') {
             int32_t target;
             if (!evaluateExpression(op1, target)) {
@@ -529,6 +600,27 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 return false;
             }
             bytes.push_back((mnemonic == "POP" ? 0xC0 : 0xC8) + r);
+        } else if (mnemonic == "SXT" || mnemonic == "ABS") {
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(getALUOpcode("AND", r, r));
+        } else if (mnemonic == "INV") {
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in INV at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(getALUOpcode("OR", r, r));
+        } else if (mnemonic == "NEG") {
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in NEG at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(getALUOpcode("SUB", r, r));
         } else if (mnemonic == "CLR") {
             int r = parseRegister(op1);
             if (r < 0) {

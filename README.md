@@ -101,7 +101,7 @@ gradlew.bat assembleDebug
 
 ### Verificación de Equivalencia HEX (CI local)
 
-El script `scripts/verify_hex_equivalence.sh` ensambla `tic_tac_toe_2.asm` usando un CLI Linux (compilado en tiempo de ejecución desde el core C++), normaliza ambos archivos HEX (fin de línea, mayúsculas y espacios al final de línea) y compara el contenido literal.
+El script `scripts/verify_hex_equivalence.sh` ensambla `tic_tac_toe_2.asm` usando un CLI Linux (compilado en tiempo de ejecución desde el core C++), normaliza los HEX y compara el resultado generado contra `app/src/main/assets/example.hex` (que debe ser idéntico al `tic_tac_toe_2.hex` de referencia en raíz).
 
 Comportamiento:
 - Devuelve `PASS` cuando los HEX son idénticos.
@@ -112,12 +112,8 @@ Comportamiento:
 
 Estado actual del repositorio: la verificación `./scripts/verify_hex_equivalence.sh` ya produce `PASS` para `tic_tac_toe_2.asm` vs `tic_tac_toe_2.hex` con el ensamblador C++ (Linux/NDK).
 
-También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
-
-## 📦 Release de APK Debug en GitHub
-
-Si quieres publicar el `app-debug.apk` como un **Release** de GitHub:
-
+También está integrado en GitH
+Si quieres publicar el `app-debug.apk` como un **Release** de GitHu
 1. Ve a **Actions > Build and release debug APK**.
 2. Pulsa **Run workflow**.
 3. Ingresa un `tag_name` (por ejemplo `debug-v1`).
