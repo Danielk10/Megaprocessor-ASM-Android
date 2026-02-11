@@ -1,7 +1,14 @@
 package com.diamon.megaprocessor;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.os.Bundle;
+import android.Manifest;
+import android.content.ContentValues;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.SpannableStringBuilder;
@@ -17,7 +24,10 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +36,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_WRITE_EXTERNAL_STORAGE = 1001;
 
     private NativeAssembler assembler;
     private EditText etSource;
@@ -181,6 +193,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void exportFiles() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    REQUEST_WRITE_EXTERNAL_STORAGE
+            );
+            return;
+        }
+        exportFilesInternal();
+    }
+
+    private void exportFilesInternal() {
         final String hex = tvOutput.getText().toString();
 
         if (hex.isEmpty() || hex.startsWith("ERROR")) {
@@ -189,47 +215,90 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final String lst = assembler.getListing();
+        final String timestamp = String.valueOf(System.currentTimeMillis());
+        final String hexName = String.format(Locale.US, "megaprocessor_%s.hex", timestamp);
+        final String lstName = String.format(Locale.US, "megaprocessor_%s.lst", timestamp);
+
         setButtonsEnabled(false);
-        setStatus("Exporting files...", false);
+        setStatus("Exporting files to Downloads...", false);
 
         executorService.execute(() -> {
-            boolean hexSaved = saveFile("output.hex", hex);
-            boolean lstSaved = saveFile("output.lst", lst);
+            boolean hexSaved = saveFileToDownloads(hexName, hex);
+            boolean lstSaved = saveFileToDownloads(lstName, lst);
 
             final boolean success = hexSaved && lstSaved;
             mainHandler.post(() -> {
                 if (success) {
-                    File path = getExternalFilesDir(null);
-                    setStatus("Files saved to: " + (path != null ? path.getAbsolutePath() : "storage"), false);
+                    setStatus("Files saved in Downloads: " + hexName + " / " + lstName, false);
                 } else {
-                    setStatus("Error: Failed to save files", true);
+                    setStatus("Error: Failed to save files in Downloads", true);
                 }
                 setButtonsEnabled(true);
             });
         });
     }
 
-    private boolean saveFile(String fileName, String content) {
-        File path = getExternalFilesDir(null);
-        if (path == null) {
+    private boolean saveFileToDownloads(String fileName, String content) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName);
+            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain");
+            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+            values.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+
+            Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) {
+                return false;
+            }
+
+            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                if (os == null) {
+                    return false;
+                }
+                os.write(content.getBytes(StandardCharsets.UTF_8));
+                os.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+                getContentResolver().delete(uri, null, null);
+                return false;
+            }
+
+            ContentValues done = new ContentValues();
+            done.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+            getContentResolver().update(uri, done, null, null);
+            return true;
+        }
+
+        @SuppressWarnings("deprecation")
+        File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        if (downloadsDir == null) {
+            return false;
+        }
+        if (!downloadsDir.exists() && !downloadsDir.mkdirs()) {
             return false;
         }
 
-        File file = new File(path, fileName);
-        BufferedOutputStream bos = null;
-
-        try {
-            bos = new BufferedOutputStream(new FileOutputStream(file));
-            bos.write(content.getBytes());
+        File file = new File(downloadsDir, fileName);
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file))) {
+            bos.write(content.getBytes(StandardCharsets.UTF_8));
             bos.flush();
             return true;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
-        } finally {
-            try {
-                if (bos != null) bos.close();
-            } catch (IOException ignored) {}
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_WRITE_EXTERNAL_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                exportFilesInternal();
+            } else {
+                setStatus("Permission denied: cannot write into Downloads", true);
+            }
         }
     }
 
