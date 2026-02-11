@@ -110,6 +110,8 @@ Comportamiento:
   - dirección del registro Intel HEX donde comienza la divergencia,
   - salida `diff -u` normalizada para diagnóstico.
 
+Estado actual del repositorio: la verificación `./scripts/verify_hex_equivalence.sh` ya produce `PASS` para `tic_tac_toe_2.asm` vs `tic_tac_toe_2.hex` con el ensamblador C++ (Linux/NDK).
+
 También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
 
 ## 📦 Release de APK Debug en GitHub
