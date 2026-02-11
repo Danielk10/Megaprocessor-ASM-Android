@@ -27,7 +27,7 @@ void Assembler::initOpcodes() {
     opcodeMap["PUSH"] = 0xC8;
     opcodeMap["RET"] = 0xC6;
     opcodeMap["RETI"] = 0xC7;
-    opcodeMap["JSR"] = 0xCD;
+    opcodeMap["JSR"] = 0xCF;
     opcodeMap["TRAP"] = 0xCD;
 
     // Branches (instruction_set.pdf condition code order)
@@ -82,13 +82,14 @@ int Assembler::parseRegister(const std::string& token) {
 }
 
 uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
-    if (mnemonic == "MOVE") return (ra * 4 + rb);
-    if (mnemonic == "AND") return 0x10 + (ra * 4 + rb);
-    if (mnemonic == "XOR") return 0x20 + (ra * 4 + rb);
-    if (mnemonic == "OR")  return 0x30 + (ra * 4 + rb);
-    if (mnemonic == "ADD") return 0x40 + (ra * 4 + rb);
-    if (mnemonic == "SUB") return 0x60 + (ra * 4 + rb);
-    if (mnemonic == "CMP") return 0x70 + (ra * 4 + rb);
+    int encodedRegPair = (rb * 4 + ra);
+    if (mnemonic == "MOVE") return encodedRegPair;
+    if (mnemonic == "AND") return 0x10 + encodedRegPair;
+    if (mnemonic == "XOR") return 0x20 + encodedRegPair;
+    if (mnemonic == "OR")  return 0x30 + encodedRegPair;
+    if (mnemonic == "ADD") return 0x40 + encodedRegPair;
+    if (mnemonic == "SUB") return 0x60 + encodedRegPair;
+    if (mnemonic == "CMP") return 0x70 + encodedRegPair;
     return 0xFF;
 }
 
@@ -496,7 +497,7 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                     error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
                     return false;
                 }
-                bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCD);
+                bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCF);
                 bytes.push_back((uint8_t)(target & 0xFF));
                 bytes.push_back((uint8_t)((target >> 8) & 0xFF));
             }
@@ -505,8 +506,13 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             if (!error.empty()) return false;
         } else if (mnemonic == "MOVE" || mnemonic == "AND" || mnemonic == "XOR" || mnemonic == "OR" || mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "CMP") {
             int r1 = parseRegister(op1), r2 = parseRegister(op2);
-            if (r1 >= 0 && r2 >= 0) bytes.push_back(getALUOpcode(mnemonic, r1, r2));
-            else {
+            if (mnemonic == "MOVE" && r1 == 4 && r2 == 0) {
+                bytes.push_back(0xF1); // MOVE SP, R0
+            } else if (mnemonic == "MOVE" && r1 == 0 && r2 == 4) {
+                bytes.push_back(0xF0); // MOVE R0, SP
+            } else if (r1 >= 0 && r2 >= 0) {
+                bytes.push_back(getALUOpcode(mnemonic, r1, r2));
+            } else {
                 error = "Invalid register at line " + std::to_string(lineNum);
                 return false;
             }
