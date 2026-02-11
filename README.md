@@ -152,7 +152,12 @@ El ejecutable carga automáticamente `Megaprocessor_defs.asm` si está disponibl
 4. **Ver resultados**: 
    - Archivo `.hex` - Código máquina en formato hexadecimal
    - Archivo `.lst` - Listado con direcciones y código fuente
-5. **Guardar**: Los archivos generados se guardan automáticamente
+5. **Guardar**: Presiona **Exportar** para guardar los archivos `.hex` y `.lst` en la carpeta **Descargas** del teléfono
+
+Notas sobre exportación en Android:
+- En Android 10+ (API 29+) se usa `MediaStore` para guardar en **Descargas** sin permisos de almacenamiento legados.
+- En Android 6–9 (API 23–28), la app solicita permiso de escritura al exportar por primera vez.
+- Los archivos se guardan con nombres tipo `megaprocessor_<timestamp>.hex` y `megaprocessor_<timestamp>.lst` para evitar sobreescrituras.
 
 ### Ejemplo de Código Assembly
 
