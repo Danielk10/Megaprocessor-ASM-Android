@@ -72,6 +72,9 @@ cd Megaprocessor-ASM-Android
 ### Compilar desde Línea de Comandos
 
 ```bash
+# Preparar SDK/NDK automáticamente en Linux
+./scripts/setup-android-sdk.sh
+
 # En Linux/macOS
 ./gradlew assembleDebug
 
@@ -84,6 +87,8 @@ gradlew.bat assembleDebug
 # Ejecutar tests
 ./gradlew test
 ```
+
+> Si no tienes Android SDK/NDK instalado en tu entorno Linux, usa `./scripts/setup-android-sdk.sh` para descargar `cmdline-tools`, aceptar licencias e instalar los paquetes requeridos (`platform-tools`, `platforms;android-36`, `build-tools;36.0.0`, `cmake;3.22.1` y `ndk;28.2.13676358`).
 
 El APK generado estará en: `app/build/outputs/apk/debug/app-debug.apk`
 
