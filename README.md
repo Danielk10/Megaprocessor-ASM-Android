@@ -89,12 +89,6 @@ gradlew.bat assembleDebug
 
 # Verificar equivalencia HEX (CLI Linux vs archivo de referencia)
 ./scripts/verify_hex_equivalence.sh
-
-# Verificar HEX + compilar APK; siempre copia app-debug.apk como app-debug.jpg en raíz
-./scripts/verify_hex_and_prepare_apk.sh
-
-# Modo estricto (falla si HEX no coincide)
-STRICT_HEX=1 ./scripts/verify_hex_and_prepare_apk.sh
 ```
 
 > Si no tienes Android SDK/NDK instalado en tu entorno Linux, usa `./scripts/setup-android-sdk.sh` para descargar `cmdline-tools`, aceptar licencias e instalar los paquetes requeridos (`platform-tools`, `platforms;android-36`, `build-tools;36.0.0`, `cmake;3.22.1` y `ndk;28.2.13676358`).
