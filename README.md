@@ -109,6 +109,17 @@ Comportamiento:
 
 También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
 
+## 📦 Release de APK Debug en GitHub
+
+Si quieres publicar el `app-debug.apk` como un **Release** de GitHub:
+
+1. Ve a **Actions > Build and release debug APK**.
+2. Pulsa **Run workflow**.
+3. Ingresa un `tag_name` (por ejemplo `debug-v1`).
+4. (Opcional) Cambia `release_name`.
+
+El workflow compila con `assembleDebug`, sube `app-debug.apk` como artifact de la corrida y también lo publica como asset del release.
+
 El APK generado estará en: `app/build/outputs/apk/debug/app-debug.apk`
 
 
