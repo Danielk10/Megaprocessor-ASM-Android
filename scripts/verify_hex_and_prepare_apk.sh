@@ -23,16 +23,17 @@ echo "==> Paso 2/2: compilando APK debug"
   ./gradlew assembleDebug
 )
 
-if [[ ${verify_status} -eq 0 ]]; then
-  if [[ ! -f "${APK_PATH}" ]]; then
-    echo "ERROR: verificación HEX PASS, pero no se encontró APK en ${APK_PATH}" >&2
-    exit 1
-  fi
+if [[ ! -f "${APK_PATH}" ]]; then
+  echo "ERROR: compilación finalizada, pero no se encontró APK en ${APK_PATH}" >&2
+  exit 1
+fi
 
-  cp "${APK_PATH}" "${RENAMED_APK_PATH}"
+cp "${APK_PATH}" "${RENAMED_APK_PATH}"
+
+if [[ ${verify_status} -eq 0 ]]; then
   echo "HEX PASS: APK copiado como ${RENAMED_APK_PATH}"
 else
-  echo "HEX FAIL: no se copia APK renombrado a .jpg."
+  echo "HEX FAIL: APK también copiado como ${RENAMED_APK_PATH}"
 fi
 
 exit ${verify_status}
