@@ -86,9 +86,25 @@ gradlew.bat assembleDebug
 
 # Ejecutar tests
 ./gradlew test
+
+# Verificar equivalencia HEX (CLI Linux vs archivo de referencia)
+./scripts/verify_hex_equivalence.sh
 ```
 
 > Si no tienes Android SDK/NDK instalado en tu entorno Linux, usa `./scripts/setup-android-sdk.sh` para descargar `cmdline-tools`, aceptar licencias e instalar los paquetes requeridos (`platform-tools`, `platforms;android-36`, `build-tools;36.0.0`, `cmake;3.22.1` y `ndk;28.2.13676358`).
+
+### Verificación de Equivalencia HEX (CI local)
+
+El script `scripts/verify_hex_equivalence.sh` ensambla `tic_tac_toe_2.asm` usando un CLI Linux (compilado en tiempo de ejecución desde el core C++), normaliza ambos archivos HEX (fin de línea, mayúsculas y espacios al final de línea) y compara el contenido literal.
+
+Comportamiento:
+- Devuelve `PASS` cuando los HEX son idénticos.
+- Devuelve `FAIL` cuando hay diferencias y muestra:
+  - primera línea distinta,
+  - dirección del registro Intel HEX donde comienza la divergencia,
+  - salida `diff -u` normalizada para diagnóstico.
+
+También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
 
 El APK generado estará en: `app/build/outputs/apk/debug/app-debug.apk`
 
