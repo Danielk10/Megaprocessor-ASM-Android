@@ -1,31 +1,49 @@
 package com.diamon.megaprocessor;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.os.Bundle;
+import android.Manifest;
+import android.content.ContentValues;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.SpannableStringBuilder;
+import android.text.Spannable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.graphics.Color;
+import android.content.Intent;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_WRITE_EXTERNAL_STORAGE = 1001;
 
     private NativeAssembler assembler;
     private EditText etSource;
@@ -37,6 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private Button btnAssemble;
     private Button btnLoad;
     private Button btnExport;
+    private Button btnShare;
+    private Button btnDocs;
+    private Button btnWebSim;
+    private boolean isApplyingSyntaxHighlight = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,12 +76,20 @@ public class MainActivity extends AppCompatActivity {
         btnLoad = findViewById(R.id.btnLoadExample);
         btnAssemble = findViewById(R.id.btnAssemble);
         btnExport = findViewById(R.id.btnExport);
+        btnShare = findViewById(R.id.btnShare);
+        btnDocs = findViewById(R.id.btnDocs);
+        btnWebSim = findViewById(R.id.btnWebSim);
 
         registerDefaultIncludes();
 
         btnLoad.setOnClickListener(v -> loadExample());
         btnAssemble.setOnClickListener(v -> assembleCode());
         btnExport.setOnClickListener(v -> exportFiles());
+        btnShare.setOnClickListener(v -> shareProject());
+        btnDocs.setOnClickListener(v -> openInstructionsDocs());
+        btnWebSim.setOnClickListener(v -> openWebSimulator());
+
+        setupEditorSyntaxHighlighting();
     }
 
     private void registerDefaultIncludes() {
@@ -103,6 +133,9 @@ public class MainActivity extends AppCompatActivity {
             if (btnLoad != null) btnLoad.setEnabled(enabled);
             if (btnAssemble != null) btnAssemble.setEnabled(enabled);
             if (btnExport != null) btnExport.setEnabled(enabled);
+            if (btnShare != null) btnShare.setEnabled(enabled);
+            if (btnDocs != null) btnDocs.setEnabled(enabled);
+            if (btnWebSim != null) btnWebSim.setEnabled(enabled);
         });
     }
 
@@ -119,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                 mainHandler.post(() -> {
                     etSource.setText(asmContent);
+                    applySyntaxHighlightingToEditor();
                     tvOriginalHex.setText(colorizedReference);
                     tvOutput.setText("Generated Output...");
                     setStatus("Example loaded successfully", false);
@@ -180,7 +214,108 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void setupEditorSyntaxHighlighting() {
+        etSource.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) { }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                applySyntaxHighlightingToEditor();
+            }
+        });
+    }
+
+    private void applySyntaxHighlightingToEditor() {
+        if (isApplyingSyntaxHighlight || etSource == null) {
+            return;
+        }
+        Editable text = etSource.getText();
+        if (text == null) {
+            return;
+        }
+
+        isApplyingSyntaxHighlight = true;
+        ForegroundColorSpan[] spans = text.getSpans(0, text.length(), ForegroundColorSpan.class);
+        for (ForegroundColorSpan span : spans) {
+            text.removeSpan(span);
+        }
+
+        highlightRegex(text, "(?m)^\\s*([A-Za-z_][A-Za-z0-9_]*):", Color.parseColor("#7B1FA2"));
+        highlightRegex(text, "(?m)\\b(LOAD|STORE|ADD|SUB|MUL|DIV|AND|OR|XOR|NOT|CMP|JMP|JZ|JNZ|CALL|RET|PUSH|POP|HALT|NOP|MOV|INC|DEC)\\b", Color.parseColor("#0D47A1"));
+        highlightRegex(text, "(?m)\\.[A-Za-z_][A-Za-z0-9_]*", Color.parseColor("#00695C"));
+        highlightRegex(text, "(?m)(;.*$|//.*$)", Color.parseColor("#9E9E9E"));
+        highlightRegex(text, "(?m)\\b(0x[0-9A-Fa-f]+|\\d+)\\b", Color.parseColor("#E65100"));
+
+        isApplyingSyntaxHighlight = false;
+    }
+
+    private void highlightRegex(Editable text, String regex, int color) {
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(text.toString());
+        while (matcher.find()) {
+            text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+    }
+
+    private void shareProject() {
+        String source = etSource.getText() != null ? etSource.getText().toString() : "";
+        String hex = tvOutput.getText() != null ? tvOutput.getText().toString() : "";
+        String lst = assembler.getListing();
+
+        if (source.trim().isEmpty()) {
+            setStatus("Nothing to share: source is empty", true);
+            return;
+        }
+
+        String payload = "# Megaprocessor Project\n\n"
+                + "## ASM\n" + source + "\n\n"
+                + "## HEX\n" + hex + "\n\n"
+                + "## LST\n" + lst + "\n";
+
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setType("text/plain");
+        sendIntent.putExtra(Intent.EXTRA_SUBJECT, "Megaprocessor ASM Project");
+        sendIntent.putExtra(Intent.EXTRA_TEXT, payload);
+
+        startActivity(Intent.createChooser(sendIntent, "Share project via"));
+    }
+
+    private void openInstructionsDocs() {
+        openUrl("https://www.megaprocessor.com/instruction-set/");
+    }
+
+    private void openWebSimulator() {
+        openUrl("https://www.megaprocessor.com/");
+    }
+
+    private void openUrl(String url) {
+        try {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(browserIntent);
+        } catch (Exception e) {
+            setStatus("Unable to open link", true);
+        }
+    }
+
     private void exportFiles() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    REQUEST_WRITE_EXTERNAL_STORAGE
+            );
+            return;
+        }
+        exportFilesInternal();
+    }
+
+    private void exportFilesInternal() {
         final String hex = tvOutput.getText().toString();
 
         if (hex.isEmpty() || hex.startsWith("ERROR")) {
@@ -189,47 +324,90 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final String lst = assembler.getListing();
+        final String timestamp = String.valueOf(System.currentTimeMillis());
+        final String hexName = String.format(Locale.US, "megaprocessor_%s.hex", timestamp);
+        final String lstName = String.format(Locale.US, "megaprocessor_%s.lst", timestamp);
+
         setButtonsEnabled(false);
-        setStatus("Exporting files...", false);
+        setStatus("Exporting files to Downloads...", false);
 
         executorService.execute(() -> {
-            boolean hexSaved = saveFile("output.hex", hex);
-            boolean lstSaved = saveFile("output.lst", lst);
+            boolean hexSaved = saveFileToDownloads(hexName, hex);
+            boolean lstSaved = saveFileToDownloads(lstName, lst);
 
             final boolean success = hexSaved && lstSaved;
             mainHandler.post(() -> {
                 if (success) {
-                    File path = getExternalFilesDir(null);
-                    setStatus("Files saved to: " + (path != null ? path.getAbsolutePath() : "storage"), false);
+                    setStatus("Files saved in Downloads: " + hexName + " / " + lstName, false);
                 } else {
-                    setStatus("Error: Failed to save files", true);
+                    setStatus("Error: Failed to save files in Downloads", true);
                 }
                 setButtonsEnabled(true);
             });
         });
     }
 
-    private boolean saveFile(String fileName, String content) {
-        File path = getExternalFilesDir(null);
-        if (path == null) {
+    private boolean saveFileToDownloads(String fileName, String content) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName);
+            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain");
+            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+            values.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+
+            Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) {
+                return false;
+            }
+
+            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                if (os == null) {
+                    return false;
+                }
+                os.write(content.getBytes(StandardCharsets.UTF_8));
+                os.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+                getContentResolver().delete(uri, null, null);
+                return false;
+            }
+
+            ContentValues done = new ContentValues();
+            done.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+            getContentResolver().update(uri, done, null, null);
+            return true;
+        }
+
+        @SuppressWarnings("deprecation")
+        File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        if (downloadsDir == null) {
+            return false;
+        }
+        if (!downloadsDir.exists() && !downloadsDir.mkdirs()) {
             return false;
         }
 
-        File file = new File(path, fileName);
-        BufferedOutputStream bos = null;
-
-        try {
-            bos = new BufferedOutputStream(new FileOutputStream(file));
-            bos.write(content.getBytes());
+        File file = new File(downloadsDir, fileName);
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file))) {
+            bos.write(content.getBytes(StandardCharsets.UTF_8));
             bos.flush();
             return true;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
-        } finally {
-            try {
-                if (bos != null) bos.close();
-            } catch (IOException ignored) {}
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_WRITE_EXTERNAL_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                exportFilesInternal();
+            } else {
+                setStatus("Permission denied: cannot write into Downloads", true);
+            }
         }
     }
 
@@ -328,8 +506,14 @@ public class MainActivity extends AppCompatActivity {
         final int GREEN = Color.parseColor("#008000");
         final int GRAY = Color.GRAY;
 
-        for (String line : lines) {
+        for (int lineNum = 0; lineNum < lines.length; lineNum++) {
+            String line = lines[lineNum];
             if (line.isEmpty()) continue;
+
+            String prefix = String.format(Locale.US, "%04d | ", lineNum + 1);
+            int prefixStart = builder.length();
+            builder.append(prefix);
+            builder.setSpan(new ForegroundColorSpan(Color.DKGRAY), prefixStart, prefixStart + prefix.length(), 0);
 
             int start = builder.length();
             builder.append(line);

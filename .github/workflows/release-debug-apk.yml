@@ -1,0 +1,57 @@
+name: Build and release debug APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Tag para crear el release (ej: debug-v1)
+        required: true
+      release_name:
+        description: Nombre visible del release
+        required: false
+        default: Debug APK
+
+permissions:
+  contents: write
+
+jobs:
+  release-debug-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Ensure executable permissions
+        run: |
+          chmod +x gradlew
+          chmod +x scripts/setup-android-sdk.sh
+
+      - name: Install Android SDK + NDK
+        run: ./scripts/setup-android-sdk.sh
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish release with debug APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ github.event.inputs.release_name }}
+          files: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
+          overwrite_files: true

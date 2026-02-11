@@ -10,36 +10,68 @@
         android:id="@+id/button_panel"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="8dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-        
-        <Button
-            android:id="@+id/btnLoadExample"
-            android:layout_width="0dp"
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Load Example" />
-        
-        <Button
-            android:id="@+id/btnAssemble"
-            android:layout_width="0dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnLoadExample"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Load Example" />
+
+            <Button
+                android:id="@+id/btnAssemble"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Assemble" />
+
+            <Button
+                android:id="@+id/btnExport"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Export" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Assemble" />
-            
-        <Button
-            android:id="@+id/btnExport"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Export" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnShare"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Share" />
+
+            <Button
+                android:id="@+id/btnDocs"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Docs" />
+
+            <Button
+                android:id="@+id/btnWebSim"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Web Sim" />
+        </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Status TextView to replace Toasts -->
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="0dp"
@@ -75,7 +107,7 @@
         android:maxLines="1000"
         android:scrollHorizontally="false"
         android:freezesText="true" />
-        
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -105,7 +137,7 @@
                 android:padding="8dp"
                 android:textSize="12sp"
                 android:fontFamily="monospace"
-                android:text="Generated Output..." 
+                android:text="Generated Output..."
                 android:textColor="#0000AA"
                 android:freezesText="true" />
         </ScrollView>
@@ -129,7 +161,7 @@
                 android:padding="8dp"
                 android:textSize="12sp"
                 android:fontFamily="monospace"
-                android:text="Original Hex will appear here..." 
+                android:text="Original Hex will appear here..."
                 android:textColor="#005500"
                 android:freezesText="true" />
         </ScrollView>

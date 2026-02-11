@@ -31,6 +31,9 @@ Esta aplicación utiliza **Android NDK** para ejecutar el ensamblador en código
 - 📝 **Editor integrado**: Permite editar código assembly directamente
 - 🔍 **Visualización de resultados**: Muestra archivos .hex y .lst generados
 - 🎯 **API 23+**: Compatible con Android 6.0 Marshmallow en adelante
+- 🌗 **Modo oscuro automático**: Soporte Day/Night según el tema del sistema
+- 🔗 **Integración web**: Acceso rápido a documentación y sitio del Megaprocessor
+- 📤 **Compartir proyecto**: Permite compartir ASM/HEX/LST desde la app
 
 ## 🏗️ Arquitectura del Megaprocessor
 
@@ -109,6 +112,17 @@ Comportamiento:
 
 También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
 
+## 📦 Release de APK Debug en GitHub
+
+Si quieres publicar el `app-debug.apk` como un **Release** de GitHub:
+
+1. Ve a **Actions > Build and release debug APK**.
+2. Pulsa **Run workflow**.
+3. Ingresa un `tag_name` (por ejemplo `debug-v1`).
+4. (Opcional) Cambia `release_name`.
+
+El workflow compila con `assembleDebug`, sube `app-debug.apk` como artifact de la corrida y también lo publica como asset del release.
+
 El APK generado estará en: `app/build/outputs/apk/debug/app-debug.apk`
 
 
@@ -141,7 +155,12 @@ El ejecutable carga automáticamente `Megaprocessor_defs.asm` si está disponibl
 4. **Ver resultados**: 
    - Archivo `.hex` - Código máquina en formato hexadecimal
    - Archivo `.lst` - Listado con direcciones y código fuente
-5. **Guardar**: Los archivos generados se guardan automáticamente
+5. **Guardar**: Presiona **Exportar** para guardar los archivos `.hex` y `.lst` en la carpeta **Descargas** del teléfono
+
+Notas sobre exportación en Android:
+- En Android 10+ (API 29+) se usa `MediaStore` para guardar en **Descargas** sin permisos de almacenamiento legados.
+- En Android 6–9 (API 23–28), la app solicita permiso de escritura al exportar por primera vez.
+- Los archivos se guardan con nombres tipo `megaprocessor_<timestamp>.hex` y `megaprocessor_<timestamp>.lst` para evitar sobreescrituras.
 
 ### Ejemplo de Código Assembly
 
@@ -246,17 +265,20 @@ El archivo `CMakeLists.txt` configura:
 - [x] Ensamblador base funcionando
 - [x] Lectura/escritura de archivos
 - [x] Generación de archivos .hex y .lst
-- [ ] Editor de código con syntax highlighting
-- [ ] Visualizador hexadecimal mejorado
+- [x] Editor de código con syntax highlighting
+- [x] Visualizador hexadecimal mejorado
 - [ ] Simulador del Megaprocessor integrado
 - [ ] Debugger paso a paso
 - [ ] Breakpoints en código assembly
 - [ ] Visualización de registros y memoria
-- [ ] Modo oscuro
-- [ ] Compartir proyectos
-- [ ] Ejemplos de código incluidos
-- [ ] Documentación interactiva del set de instrucciones
-- [ ] Integración con simulador web del Megaprocessor
+- [x] Modo oscuro
+- [x] Compartir proyectos
+- [x] Ejemplos de código incluidos
+- [x] Documentación interactiva del set de instrucciones
+- [x] Integración con simulador web del Megaprocessor
+
+
+> Implementado en esta versión: resaltado básico de sintaxis ASM, visualizador HEX con numeración de líneas, botones de compartir proyecto, acceso a documentación y enlace web del Megaprocessor.
 
 ## 🔧 Desarrollo
 
