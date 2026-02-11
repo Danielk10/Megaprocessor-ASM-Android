@@ -112,21 +112,8 @@ Comportamiento:
 
 Estado actual del repositorio: la verificación `./scripts/verify_hex_equivalence.sh` ya produce `PASS` para `tic_tac_toe_2.asm` vs `tic_tac_toe_2.hex` con el ensamblador C++ (Linux/NDK).
 
-También está integrado en GitHub Actions mediante `.github/workflows/verify-hex-equivalence.yml`.
-
-### Verificación de cobertura de opcodes (caso de referencia)
-
-Se agregó el caso `verification/cases/asm/opcodes.asm` para validar directivas y codificación base del set de instrucciones (incluyendo `ORG`, `EQU`, `DB`, `DW`, `DL`, `DM`, `DS`, ALU RR y modos de direccionamiento principales).
-
-Ejemplo:
-```bash
-./build/assembler-cli/assembler-cli verification/cases/asm/opcodes.asm --out /tmp/opcodes.hex --lst --lst-out /tmp/opcodes.lst
-```
-
-## 📦 Release de APK Debug en GitHub
-
-Si quieres publicar el `app-debug.apk` como un **Release** de GitHub:
-
+También está integrado en GitH
+Si quieres publicar el `app-debug.apk` como un **Release** de GitHu
 1. Ve a **Actions > Build and release debug APK**.
 2. Pulsa **Run workflow**.
 3. Ingresa un `tag_name` (por ejemplo `debug-v1`).
