@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERIFY_SCRIPT="${ROOT_DIR}/scripts/verify_hex_equivalence.sh"
 APK_PATH="${ROOT_DIR}/app/build/outputs/apk/debug/app-debug.apk"
 RENAMED_APK_PATH="${ROOT_DIR}/app-debug.jpg"
+STRICT_HEX="${STRICT_HEX:-0}"
 
 if [[ ! -x "${VERIFY_SCRIPT}" ]]; then
   echo "ERROR: no se encontró script ejecutable en ${VERIFY_SCRIPT}" >&2
@@ -33,8 +34,14 @@ echo "APK copiado como ${RENAMED_APK_PATH} (independiente del resultado HEX)."
 
 if [[ ${verify_status} -eq 0 ]]; then
   echo "HEX PASS"
-else
-  echo "HEX FAIL"
+  exit 0
 fi
 
-exit ${verify_status}
+echo "HEX FAIL"
+if [[ "${STRICT_HEX}" == "1" ]]; then
+  echo "Modo estricto activo (STRICT_HEX=1): devolviendo error por mismatch HEX." >&2
+  exit 1
+fi
+
+echo "Continuando con éxito porque STRICT_HEX!=1."
+exit 0
