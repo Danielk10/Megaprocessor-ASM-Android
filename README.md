@@ -108,6 +108,28 @@ También está integrado en GitHub Actions mediante `.github/workflows/verify-he
 
 El APK generado estará en: `app/build/outputs/apk/debug/app-debug.apk`
 
+
+## 🧪 Verificación Linux
+
+Para validar el ensamblador en modo **offline** (sin Android SDK/NDK), se incluye un target CLI en `tools/assembler-cli/` que reutiliza `assembler.cpp` y `utils.cpp` sin enlazar con `android` ni `log`.
+
+```bash
+cmake -S tools/assembler-cli -B build/assembler-cli
+cmake --build build/assembler-cli
+
+# Genera .hex junto al .asm
+./build/assembler-cli/assembler-cli ./tic_tac_toe_2.asm
+
+# Genera .hex y .lst
+./build/assembler-cli/assembler-cli ./tic_tac_toe_2.asm --lst
+```
+
+Opciones útiles:
+- `--out <archivo.hex>`: ruta de salida para el `.hex`.
+- `--lst-out <archivo.lst>`: ruta de salida para el `.lst` (activa listado).
+
+El ejecutable carga automáticamente `Megaprocessor_defs.asm` si está disponible y también resuelve includes declarados en el `.asm` principal.
+
 ## 📖 Uso de la Aplicación
 
 1. **Abrir archivo .asm**: Usa el selector de archivos para cargar un archivo assembly
