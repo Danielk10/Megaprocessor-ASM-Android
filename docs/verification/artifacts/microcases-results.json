@@ -1,0 +1,54 @@
+{
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "MC-01",
+      "name": "NOP",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":01000000FF00\n:00000001FF"
+    },
+    {
+      "id": "MC-02",
+      "name": "RET",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":01000000C639\n:00000001FF"
+    },
+    {
+      "id": "MC-03",
+      "name": "MOVE r0,r1",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":0100000001FE\n:00000001FF"
+    },
+    {
+      "id": "MC-04",
+      "name": "ADD r1,r2",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":0100000046B9\n:00000001FF"
+    },
+    {
+      "id": "MC-05",
+      "name": "OR r3,r0",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":010000003CC3\n:00000001FF"
+    },
+    {
+      "id": "MC-06",
+      "name": "include defs + NOP",
+      "pass": true,
+      "rc": 0,
+      "stderr": "",
+      "generated": ":01000000FF00\n:00000001FF"
+    }
+  ]
+}
