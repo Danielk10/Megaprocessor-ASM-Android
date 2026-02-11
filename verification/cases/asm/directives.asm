@@ -1,0 +1,6 @@
+; Directive coverage: ORG, DB, DW, EQU, INCLUDE
+INCLUDE "defs.inc"
+ORG BASE
+VALUE EQU 0x34
+DB VALUE
+DW CONSTW

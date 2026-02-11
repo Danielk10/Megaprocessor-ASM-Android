@@ -1,0 +1,9 @@
+; ALU minimal coverage
+ORG 0x0100
+MOVE R0, R1
+AND R0, R1
+XOR R0, R1
+OR R0, R1
+ADD R0, R1
+SUB R0, R1
+CMP R0, R1
