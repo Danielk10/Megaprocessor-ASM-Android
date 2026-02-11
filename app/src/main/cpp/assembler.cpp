@@ -27,26 +27,26 @@ void Assembler::initOpcodes() {
     opcodeMap["PUSH"] = 0xC8;
     opcodeMap["RET"] = 0xC6;
     opcodeMap["RETI"] = 0xC7;
-    opcodeMap["JSR"] = 0xCD;
+    opcodeMap["JSR"] = 0xCF;
     opcodeMap["TRAP"] = 0xCD;
 
     // Branches
-    opcodeMap["BCC"] = 0xE0;
-    opcodeMap["BCS"] = 0xE1;
-    opcodeMap["BNE"] = 0xE2;
-    opcodeMap["BEQ"] = 0xE3;
-    opcodeMap["BVC"] = 0xE4;
-    opcodeMap["BVS"] = 0xE5;
-    opcodeMap["BPL"] = 0xE6;
-    opcodeMap["BMI"] = 0xE7;
-    opcodeMap["BGE"] = 0xE8;
-    opcodeMap["BLT"] = 0xE9;
-    opcodeMap["BGT"] = 0xEA;
-    opcodeMap["BLE"] = 0xEB;
-    opcodeMap["BUC"] = 0xEC;
-    opcodeMap["BUS"] = 0xED;
-    opcodeMap["BHI"] = 0xEE;
-    opcodeMap["BLS"] = 0xEF;
+    opcodeMap["BCC"] = 0xE4;
+    opcodeMap["BCS"] = 0xE5;
+    opcodeMap["BNE"] = 0xE6;
+    opcodeMap["BEQ"] = 0xE7;
+    opcodeMap["BVC"] = 0xE8;
+    opcodeMap["BVS"] = 0xE9;
+    opcodeMap["BPL"] = 0xEA;
+    opcodeMap["BMI"] = 0xEB;
+    opcodeMap["BGE"] = 0xEC;
+    opcodeMap["BLT"] = 0xED;
+    opcodeMap["BGT"] = 0xEE;
+    opcodeMap["BLE"] = 0xEF;
+    opcodeMap["BUC"] = 0xF0;
+    opcodeMap["BUS"] = 0xF1;
+    opcodeMap["BHI"] = 0xF2;
+    opcodeMap["BLS"] = 0xF3;
 
     // Misc
     opcodeMap["JMP"] = 0xF3;
@@ -80,13 +80,21 @@ int Assembler::parseRegister(const std::string& token) {
 }
 
 uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
-    if (mnemonic == "MOVE") return (ra * 4 + rb);
-    if (mnemonic == "AND") return 0x10 + (ra * 4 + rb);
-    if (mnemonic == "XOR") return 0x20 + (ra * 4 + rb);
-    if (mnemonic == "OR")  return 0x30 + (ra * 4 + rb);
-    if (mnemonic == "ADD") return 0x40 + (ra * 4 + rb);
-    if (mnemonic == "SUB") return 0x60 + (ra * 4 + rb);
-    if (mnemonic == "CMP") return 0x70 + (ra * 4 + rb);
+    if (mnemonic == "MOVE" && ra == 4 && rb == 0) return 0xF1; // MOVE SP,R0
+
+    if (ra < 0 || rb < 0 || ra > 3 || rb > 3) {
+        return 0xFF;
+    }
+
+    const uint8_t regCode = static_cast<uint8_t>(rb * 4 + ra);
+
+    if (mnemonic == "MOVE") return regCode;
+    if (mnemonic == "AND") return static_cast<uint8_t>(0x10 + regCode);
+    if (mnemonic == "XOR") return static_cast<uint8_t>(0x20 + regCode);
+    if (mnemonic == "OR")  return static_cast<uint8_t>(0x30 + regCode);
+    if (mnemonic == "ADD") return static_cast<uint8_t>(0x40 + regCode);
+    if (mnemonic == "SUB") return static_cast<uint8_t>(0x60 + regCode);
+    if (mnemonic == "CMP") return static_cast<uint8_t>(0x70 + regCode);
     return 0xFF;
 }
 
@@ -394,9 +402,15 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             std::string rest; std::getline(ss, rest);
             std::vector<std::string> opList = split(rest, ',');
-            std::string addrOp = (mnemonic[0] == 'L') ? (opList.size() > 1 ? opList[1] : "") : (opList.size() > 0 ? opList[0] : "");
-            if (addrOp.find("SP") != std::string::npos && addrOp.find('+') != std::string::npos) size = 2;
-            else if (addrOp.find('(') != std::string::npos) size = 1;
+            std::string addrOp = trim((mnemonic[0] == 'L') ? (opList.size() > 1 ? opList[1] : "") : (opList.size() > 0 ? opList[0] : ""));
+
+            bool wrapped = !addrOp.empty() && addrOp.front() == '(' && addrOp.find(')') != std::string::npos;
+            std::string inside = wrapped ? addrOp.substr(1, addrOp.find(')') - 1) : "";
+            std::string insideUpper = toUpper(trim(inside));
+
+            if (wrapped && insideUpper.find("SP") != std::string::npos && inside.find('+') != std::string::npos) size = 2;
+            else if (wrapped && inside.find("++") != std::string::npos) size = 1;
+            else if (wrapped) size = 1;
             else if (!addrOp.empty() && addrOp[0] == '#') size = (mnemonic[3] == 'B' ? 2 : 3);
             else size = 3;
         }
@@ -494,7 +508,7 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                     error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
                     return false;
                 }
-                bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCD);
+                bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCF);
                 bytes.push_back((uint8_t)(target & 0xFF));
                 bytes.push_back((uint8_t)((target >> 8) & 0xFF));
             }
@@ -528,7 +542,7 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
                 return false;
             }
-            bytes.push_back((mnemonic == "INC" ? 0x50 : 0x58) + r * 4);
+            bytes.push_back((mnemonic == "INC" ? 0x54 : 0x5C) + r);
         } else if (mnemonic == "ADDQ") {
             int r = parseRegister(op1);
             int32_t val;
@@ -542,17 +556,17 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 error = "ADDQ supports only #1/#2/#-1/#-2 at line " + std::to_string(lineNum);
                 return false;
             }
-            if (val == 1) bytes.push_back(0x50 + r * 4);
-            else if (val == 2) bytes.push_back(0x54 + r * 4);
-            else if (val == -1) bytes.push_back(0x58 + r * 4);
-            else bytes.push_back(0x5C + r * 4);
+            if (val == 1) bytes.push_back(0x54 + r);
+            else if (val == 2) bytes.push_back(0x50 + r);
+            else if (val == -1) bytes.push_back(0x5C + r);
+            else bytes.push_back(0x58 + r);
         } else if (mnemonic == "TEST") {
             int r = parseRegister(op1);
             if (r < 0) {
                 error = "Invalid register in TEST at line " + std::to_string(lineNum);
                 return false;
             }
-            bytes.push_back(0x70 + (r * 4 + r));
+            bytes.push_back(getALUOpcode("AND", r, r));
         } else if (opcodeMap.count(mnemonic)) {
             bytes.push_back(opcodeMap[mnemonic]);
         } else {
@@ -578,10 +592,14 @@ void Assembler::encodeLoadStore(const std::string& mnemonic, const std::string& 
         return;
     }
 
-    if (addrStr.find("SP") != std::string::npos && addrStr.find('+') != std::string::npos) {
-        size_t plusPos = addrStr.find('+');
-        std::string offsetStr = addrStr.substr(plusPos + 1);
-        while (!offsetStr.empty() && (offsetStr.back() == ')' || offsetStr.back() == ';')) offsetStr.pop_back();
+    std::string addr = trim(addrStr);
+    bool wrapped = !addr.empty() && addr.front() == '(' && addr.find(')') != std::string::npos;
+    std::string inside = wrapped ? addr.substr(1, addr.find(')') - 1) : "";
+    std::string insideUpper = toUpper(trim(inside));
+
+    if (wrapped && insideUpper.find("SP") != std::string::npos && inside.find('+') != std::string::npos) {
+        size_t plusPos = inside.find('+');
+        std::string offsetStr = inside.substr(plusPos + 1);
         int32_t offset;
         if (!evaluateExpression(offsetStr, offset)) {
             error = "Invalid SP offset at line " + std::to_string(lineNum) + ": " + expressionError;
@@ -590,25 +608,25 @@ void Assembler::encodeLoadStore(const std::string& mnemonic, const std::string& 
         uint8_t base = isLoad ? (isByte ? 0xA4 : 0xA0) : (isByte ? 0xAC : 0xA8);
         bytes.push_back(base + reg);
         bytes.push_back((uint8_t)(offset & 0xFF));
-    } else if (addrStr.find("++") != std::string::npos) {
-        int ptrReg = (addrStr.find("R2") != std::string::npos || addrStr.find("r2") != std::string::npos) ? 2 : 3;
+    } else if (wrapped && inside.find("++") != std::string::npos) {
+        int ptrReg = (insideUpper.find("R2") != std::string::npos) ? 2 : 3;
         uint8_t base = 0x90;
         if (!isLoad) base += 8;
         if (isByte) base += 4;
         if (ptrReg == 3) base += 2;
         if (reg == 1) base += 1;
         bytes.push_back(base);
-    } else if (addrStr.find('(') != std::string::npos) {
-        int ptrReg = (addrStr.find("R2") != std::string::npos || addrStr.find("r2") != std::string::npos) ? 2 : 3;
+    } else if (wrapped) {
+        int ptrReg = (insideUpper.find("R2") != std::string::npos) ? 2 : 3;
         uint8_t base = 0x80;
         if (!isLoad) base += 8;
         if (isByte) base += 4;
         if (ptrReg == 3) base += 2;
         if (reg == 1) base += 1;
         bytes.push_back(base);
-    } else if (!addrStr.empty() && addrStr[0] == '#') {
+    } else if (!addr.empty() && addr[0] == '#') {
         int32_t value;
-        if (!evaluateExpression(addrStr.substr(1), value)) {
+        if (!evaluateExpression(addr.substr(1), value)) {
             error = "Invalid immediate at line " + std::to_string(lineNum) + ": " + expressionError;
             return;
         }
@@ -616,14 +634,14 @@ void Assembler::encodeLoadStore(const std::string& mnemonic, const std::string& 
         bytes.push_back((uint8_t)(value & 0xFF));
         if (!isByte) bytes.push_back((uint8_t)((value >> 8) & 0xFF));
     } else {
-        int32_t addr;
-        if (!evaluateExpression(addrStr, addr)) {
+        int32_t addressValue;
+        if (!evaluateExpression(addr, addressValue)) {
             error = "Invalid address expression at line " + std::to_string(lineNum) + ": " + expressionError;
             return;
         }
         uint8_t base = isLoad ? (isByte ? 0xB4 : 0xB0) : (isByte ? 0xBC : 0xB8);
         bytes.push_back(base + reg);
-        bytes.push_back((uint8_t)(addr & 0xFF));
-        bytes.push_back((uint8_t)((addr >> 8) & 0xFF));
+        bytes.push_back((uint8_t)(addressValue & 0xFF));
+        bytes.push_back((uint8_t)((addressValue >> 8) & 0xFF));
     }
 }
