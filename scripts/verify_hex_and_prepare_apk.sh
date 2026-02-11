@@ -6,6 +6,7 @@ VERIFY_SCRIPT="${ROOT_DIR}/scripts/verify_hex_equivalence.sh"
 APK_PATH="${ROOT_DIR}/app/build/outputs/apk/debug/app-debug.apk"
 RENAMED_APK_PATH="${ROOT_DIR}/app-debug.jpg"
 STRICT_HEX="${STRICT_HEX:-0}"
+SDK_SETUP_SCRIPT="${ROOT_DIR}/scripts/setup-android-sdk.sh"
 
 if [[ ! -x "${VERIFY_SCRIPT}" ]]; then
   echo "ERROR: no se encontró script ejecutable en ${VERIFY_SCRIPT}" >&2
@@ -19,6 +20,12 @@ verify_status=$?
 set -e
 
 echo "==> Paso 2/2: compilando APK debug"
+
+if [[ ! -f "${ROOT_DIR}/local.properties" && -x "${SDK_SETUP_SCRIPT}" ]]; then
+  echo "local.properties no encontrado. Intentando configurar Android SDK/NDK..."
+  "${SDK_SETUP_SCRIPT}"
+fi
+
 (
   cd "${ROOT_DIR}"
   ./gradlew assembleDebug
