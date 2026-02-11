@@ -35,3 +35,7 @@ google-services.json
 
 # VSCode
 .vscode/
+# Release artifacts
+app-debug.jpg
+artifacts/release/
+
