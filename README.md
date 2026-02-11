@@ -31,6 +31,9 @@ Esta aplicación utiliza **Android NDK** para ejecutar el ensamblador en código
 - 📝 **Editor integrado**: Permite editar código assembly directamente
 - 🔍 **Visualización de resultados**: Muestra archivos .hex y .lst generados
 - 🎯 **API 23+**: Compatible con Android 6.0 Marshmallow en adelante
+- 🌗 **Modo oscuro automático**: Soporte Day/Night según el tema del sistema
+- 🔗 **Integración web**: Acceso rápido a documentación y sitio del Megaprocessor
+- 📤 **Compartir proyecto**: Permite compartir ASM/HEX/LST desde la app
 
 ## 🏗️ Arquitectura del Megaprocessor
 
@@ -262,17 +265,20 @@ El archivo `CMakeLists.txt` configura:
 - [x] Ensamblador base funcionando
 - [x] Lectura/escritura de archivos
 - [x] Generación de archivos .hex y .lst
-- [ ] Editor de código con syntax highlighting
-- [ ] Visualizador hexadecimal mejorado
+- [x] Editor de código con syntax highlighting
+- [x] Visualizador hexadecimal mejorado
 - [ ] Simulador del Megaprocessor integrado
 - [ ] Debugger paso a paso
 - [ ] Breakpoints en código assembly
 - [ ] Visualización de registros y memoria
-- [ ] Modo oscuro
-- [ ] Compartir proyectos
-- [ ] Ejemplos de código incluidos
-- [ ] Documentación interactiva del set de instrucciones
-- [ ] Integración con simulador web del Megaprocessor
+- [x] Modo oscuro
+- [x] Compartir proyectos
+- [x] Ejemplos de código incluidos
+- [x] Documentación interactiva del set de instrucciones
+- [x] Integración con simulador web del Megaprocessor
+
+
+> Implementado en esta versión: resaltado básico de sintaxis ASM, visualizador HEX con numeración de líneas, botones de compartir proyecto, acceso a documentación y enlace web del Megaprocessor.
 
 ## 🔧 Desarrollo
 

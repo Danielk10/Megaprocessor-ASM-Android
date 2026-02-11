@@ -12,12 +12,16 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.SpannableStringBuilder;
+import android.text.Spannable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.graphics.Color;
+import android.content.Intent;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -34,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -49,6 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private Button btnAssemble;
     private Button btnLoad;
     private Button btnExport;
+    private Button btnShare;
+    private Button btnDocs;
+    private Button btnWebSim;
+    private boolean isApplyingSyntaxHighlight = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,12 +76,20 @@ public class MainActivity extends AppCompatActivity {
         btnLoad = findViewById(R.id.btnLoadExample);
         btnAssemble = findViewById(R.id.btnAssemble);
         btnExport = findViewById(R.id.btnExport);
+        btnShare = findViewById(R.id.btnShare);
+        btnDocs = findViewById(R.id.btnDocs);
+        btnWebSim = findViewById(R.id.btnWebSim);
 
         registerDefaultIncludes();
 
         btnLoad.setOnClickListener(v -> loadExample());
         btnAssemble.setOnClickListener(v -> assembleCode());
         btnExport.setOnClickListener(v -> exportFiles());
+        btnShare.setOnClickListener(v -> shareProject());
+        btnDocs.setOnClickListener(v -> openInstructionsDocs());
+        btnWebSim.setOnClickListener(v -> openWebSimulator());
+
+        setupEditorSyntaxHighlighting();
     }
 
     private void registerDefaultIncludes() {
@@ -115,6 +133,9 @@ public class MainActivity extends AppCompatActivity {
             if (btnLoad != null) btnLoad.setEnabled(enabled);
             if (btnAssemble != null) btnAssemble.setEnabled(enabled);
             if (btnExport != null) btnExport.setEnabled(enabled);
+            if (btnShare != null) btnShare.setEnabled(enabled);
+            if (btnDocs != null) btnDocs.setEnabled(enabled);
+            if (btnWebSim != null) btnWebSim.setEnabled(enabled);
         });
     }
 
@@ -131,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                 mainHandler.post(() -> {
                     etSource.setText(asmContent);
+                    applySyntaxHighlightingToEditor();
                     tvOriginalHex.setText(colorizedReference);
                     tvOutput.setText("Generated Output...");
                     setStatus("Example loaded successfully", false);
@@ -190,6 +212,93 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void setupEditorSyntaxHighlighting() {
+        etSource.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) { }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                applySyntaxHighlightingToEditor();
+            }
+        });
+    }
+
+    private void applySyntaxHighlightingToEditor() {
+        if (isApplyingSyntaxHighlight || etSource == null) {
+            return;
+        }
+        Editable text = etSource.getText();
+        if (text == null) {
+            return;
+        }
+
+        isApplyingSyntaxHighlight = true;
+        ForegroundColorSpan[] spans = text.getSpans(0, text.length(), ForegroundColorSpan.class);
+        for (ForegroundColorSpan span : spans) {
+            text.removeSpan(span);
+        }
+
+        highlightRegex(text, "(?m)^\\s*([A-Za-z_][A-Za-z0-9_]*):", Color.parseColor("#7B1FA2"));
+        highlightRegex(text, "(?m)\\b(LOAD|STORE|ADD|SUB|MUL|DIV|AND|OR|XOR|NOT|CMP|JMP|JZ|JNZ|CALL|RET|PUSH|POP|HALT|NOP|MOV|INC|DEC)\\b", Color.parseColor("#0D47A1"));
+        highlightRegex(text, "(?m)\\.[A-Za-z_][A-Za-z0-9_]*", Color.parseColor("#00695C"));
+        highlightRegex(text, "(?m)(;.*$|//.*$)", Color.parseColor("#9E9E9E"));
+        highlightRegex(text, "(?m)\\b(0x[0-9A-Fa-f]+|\\d+)\\b", Color.parseColor("#E65100"));
+
+        isApplyingSyntaxHighlight = false;
+    }
+
+    private void highlightRegex(Editable text, String regex, int color) {
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(text.toString());
+        while (matcher.find()) {
+            text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+    }
+
+    private void shareProject() {
+        String source = etSource.getText() != null ? etSource.getText().toString() : "";
+        String hex = tvOutput.getText() != null ? tvOutput.getText().toString() : "";
+        String lst = assembler.getListing();
+
+        if (source.trim().isEmpty()) {
+            setStatus("Nothing to share: source is empty", true);
+            return;
+        }
+
+        String payload = "# Megaprocessor Project\n\n"
+                + "## ASM\n" + source + "\n\n"
+                + "## HEX\n" + hex + "\n\n"
+                + "## LST\n" + lst + "\n";
+
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setType("text/plain");
+        sendIntent.putExtra(Intent.EXTRA_SUBJECT, "Megaprocessor ASM Project");
+        sendIntent.putExtra(Intent.EXTRA_TEXT, payload);
+
+        startActivity(Intent.createChooser(sendIntent, "Share project via"));
+    }
+
+    private void openInstructionsDocs() {
+        openUrl("https://www.megaprocessor.com/instruction-set/");
+    }
+
+    private void openWebSimulator() {
+        openUrl("https://www.megaprocessor.com/");
+    }
+
+    private void openUrl(String url) {
+        try {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(browserIntent);
+        } catch (Exception e) {
+            setStatus("Unable to open link", true);
+        }
     }
 
     private void exportFiles() {
@@ -397,8 +506,14 @@ public class MainActivity extends AppCompatActivity {
         final int GREEN = Color.parseColor("#008000");
         final int GRAY = Color.GRAY;
 
-        for (String line : lines) {
+        for (int lineNum = 0; lineNum < lines.length; lineNum++) {
+            String line = lines[lineNum];
             if (line.isEmpty()) continue;
+
+            String prefix = String.format(Locale.US, "%04d | ", lineNum + 1);
+            int prefixStart = builder.length();
+            builder.append(prefix);
+            builder.setSpan(new ForegroundColorSpan(Color.DKGRAY), prefixStart, prefixStart + prefix.length(), 0);
 
             int start = builder.length();
             builder.append(line);
