@@ -5,9 +5,18 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+#include <set>
+#include <stdexcept>
 
 Assembler::Assembler() {
     initOpcodes();
+}
+
+void Assembler::setIncludeFiles(const std::map<std::string, std::string>& includeFiles) {
+    includeFileContents.clear();
+    for (const auto& entry : includeFiles) {
+        includeFileContents[toUpper(trim(entry.first))] = entry.second;
+    }
 }
 
 void Assembler::initOpcodes() {
@@ -38,7 +47,7 @@ void Assembler::initOpcodes() {
     opcodeMap["BUS"] = 0xED;
     opcodeMap["BHI"] = 0xEE;
     opcodeMap["BLS"] = 0xEF;
-    
+
     // Misc
     opcodeMap["JMP"] = 0xF3;
     opcodeMap["ANDI"] = 0xF4;
@@ -57,7 +66,6 @@ void Assembler::initOpcodes() {
 
 int Assembler::parseRegister(const std::string& token) {
     std::string t = toUpper(trim(token));
-    // Aggressively remove potential trailing punctuation/artifacts
     while (!t.empty() && (t.back() == ',' || t.back() == ';' || t.back() == ')' || t.back() == ' ')) t.pop_back();
     while (!t.empty() && (t.front() == '(' || t.front() == ' ')) t.erase(0, 1);
     t = trim(t);
@@ -66,29 +74,29 @@ int Assembler::parseRegister(const std::string& token) {
     if (t == "R1") return 1;
     if (t == "R2") return 2;
     if (t == "R3") return 3;
-    if (t == "SP") return 4; 
+    if (t == "SP") return 4;
     if (t == "PS") return 5;
     return -1;
 }
 
 uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
-    if (mnemonic == "MOVE") return (ra * 4 + rb) * 4;
-    else if (mnemonic == "AND") return 0x10 + (ra * 4 + rb);
-    else if (mnemonic == "XOR") return 0x20 + (ra * 4 + rb);
-    else if (mnemonic == "OR")  return 0x30 + (ra * 4 + rb);
-    else if (mnemonic == "ADD") return 0x40 + (ra * 4 + rb);
-    else if (mnemonic == "SUB") return 0x60 + (ra * 4 + rb);
-    else if (mnemonic == "CMP") return 0x70 + (ra * 4 + rb);
+    if (mnemonic == "MOVE") return (ra * 4 + rb);
+    if (mnemonic == "AND") return 0x10 + (ra * 4 + rb);
+    if (mnemonic == "XOR") return 0x20 + (ra * 4 + rb);
+    if (mnemonic == "OR")  return 0x30 + (ra * 4 + rb);
+    if (mnemonic == "ADD") return 0x40 + (ra * 4 + rb);
+    if (mnemonic == "SUB") return 0x60 + (ra * 4 + rb);
+    if (mnemonic == "CMP") return 0x70 + (ra * 4 + rb);
     return 0xFF;
 }
 
 bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
     std::string cleanExpr = trim(expr);
+    expressionError.clear();
     if (cleanExpr.empty()) {
         result = 0;
         return true;
     }
-    // Remove trailing semicolon if any
     if (cleanExpr.back() == ';') cleanExpr.pop_back();
     cleanExpr = trim(cleanExpr);
 
@@ -97,8 +105,16 @@ bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
         for (char c : cleanExpr) if (!isspace(c)) noSpaces += c;
         const char* p = noSpaces.c_str();
         result = parseExpression(p);
+        if (*p != '\0') {
+            expressionError = "Unexpected token in expression: " + std::string(p);
+            return false;
+        }
         return true;
+    } catch (const std::exception& ex) {
+        expressionError = ex.what();
+        return false;
     } catch (...) {
+        expressionError = "Unknown expression evaluation error";
         return false;
     }
 }
@@ -108,8 +124,7 @@ int32_t Assembler::parseExpression(const char*& p) {
     while (*p == '+' || *p == '-') {
         char op = *p++;
         int32_t y = parseTerm(p);
-        if (op == '+') x += y;
-        else x -= y;
+        x = (op == '+') ? (x + y) : (x - y);
     }
     return x;
 }
@@ -129,7 +144,8 @@ int32_t Assembler::parseTerm(const char*& p) {
         } else if (*p == '/') {
             p++;
             int32_t y = parseFactor(p);
-            if (y != 0) x /= y;
+            if (y == 0) throw std::runtime_error("Division by zero in expression");
+            x /= y;
         }
     }
     return x;
@@ -140,31 +156,93 @@ int32_t Assembler::parseFactor(const char*& p) {
     if (*p == '(') {
         p++;
         int32_t x = parseExpression(p);
-        if (*p == ')') p++;
+        if (*p != ')') throw std::runtime_error("Missing ')' in expression");
+        p++;
         return x;
-    } else if (*p == '+' || *p == '-') {
+    }
+    if (*p == '+' || *p == '-') {
         char op = *p++;
         int32_t x = parseFactor(p);
         return (op == '+') ? x : -x;
-    } else if (isdigit(*p)) {
+    }
+    if (isdigit(*p)) {
         std::string numStr;
         if (*p == '0' && (toupper(*(p+1)) == 'X')) {
             p += 2;
             while (isxdigit(*p)) numStr += *p++;
+            if (numStr.empty()) throw std::runtime_error("Invalid hex literal");
             return std::stoi(numStr, nullptr, 16);
-        } else {
-            while (isdigit(*p)) numStr += *p++;
-            return std::stoi(numStr);
         }
-    } else if (isalpha(*p) || *p == '_') {
+        while (isdigit(*p)) numStr += *p++;
+        return std::stoi(numStr);
+    }
+    if (isalpha(*p) || *p == '_') {
         std::string symName;
         while (isalnum(*p) || *p == '_') symName += *p++;
-        if (symbolTable.count(symName) && symbolTable[symName].isDefined) {
-            return symbolTable[symName].value;
+        std::string key = toUpper(symName);
+        auto it = symbolTable.find(key);
+        if (it != symbolTable.end() && it->second.isDefined) {
+            return it->second.value;
         }
-        return 0; // Forward labels resolve to 0 in pass 1
+        throw std::runtime_error("Undefined symbol: " + symName);
     }
-    return 0;
+    throw std::runtime_error("Unexpected character in expression");
+}
+
+std::string Assembler::normalizeIncludeName(const std::string& includeToken) const {
+    std::string token = trim(includeToken);
+    if (!token.empty() && token.back() == ';') token.pop_back();
+    token = trim(token);
+    if (token.size() >= 2 && ((token.front() == '"' && token.back() == '"') || (token.front() == '\'' && token.back() == '\''))) {
+        token = token.substr(1, token.size() - 2);
+    }
+    return toUpper(trim(token));
+}
+
+std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::string>& lines, std::string& error,
+                                                       std::vector<std::string>& includeStack) const {
+    std::vector<std::string> expanded;
+    for (const auto& rawLine : lines) {
+        std::string line = rawLine;
+        size_t commentPos = line.find("//");
+        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
+        commentPos = line.find(';');
+        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
+        line = trim(line);
+
+        std::stringstream ss(line);
+        std::string mnemonic;
+        ss >> mnemonic;
+        if (toUpper(mnemonic) == "INCLUDE") {
+            std::string includeToken;
+            std::getline(ss, includeToken);
+            std::string includeName = normalizeIncludeName(includeToken);
+            auto it = includeFileContents.find(includeName);
+            if (it == includeFileContents.end()) {
+                error = "Include file not found: " + includeName;
+                return {};
+            }
+
+            if (std::find(includeStack.begin(), includeStack.end(), includeName) != includeStack.end()) {
+                error = "Recursive include detected: " + includeName;
+                return {};
+            }
+
+            includeStack.push_back(includeName);
+            std::vector<std::string> includeLines = split(it->second, '\n');
+            std::string includeError;
+            std::vector<std::string> nested = preprocessIncludes(includeLines, includeError, includeStack);
+            includeStack.pop_back();
+            if (!includeError.empty()) {
+                error = includeError;
+                return {};
+            }
+            expanded.insert(expanded.end(), nested.begin(), nested.end());
+            continue;
+        }
+        expanded.push_back(rawLine);
+    }
+    return expanded;
 }
 
 std::string Assembler::assemble(const std::string& sourceCode) {
@@ -174,37 +252,52 @@ std::string Assembler::assemble(const std::string& sourceCode) {
     currentAddress = 0;
     listingOutput = "";
 
-    // Pre-define required constants from Megaprocessor_defs.asm
-    symbolTable["INT_RAM_START"] = {"INT_RAM_START", 0x0000, CONSTANT, true};
-    symbolTable["INT_RAM_LEN"] = {"INT_RAM_LEN", 0x4000, CONSTANT, true};
-    symbolTable["INT_RAM_BYTES_ACROSS"] = {"INT_RAM_BYTES_ACROSS", 4, CONSTANT, true};
-    symbolTable["GEN_IO_INPUT"] = {"GEN_IO_INPUT", 0x8000, CONSTANT, true};
-    symbolTable["IO_SWITCH_FLAG_SQUARE"] = {"IO_SWITCH_FLAG_SQUARE", 0x01, CONSTANT, true};
-    symbolTable["IO_SWITCH_FLAG_R1"] = {"IO_SWITCH_FLAG_R1", 0x02, CONSTANT, true};
-    symbolTable["IO_SWITCH_FLAG_LEFT"] = {"IO_SWITCH_FLAG_LEFT", 0x04, CONSTANT, true};
-    symbolTable["IO_SWITCH_FLAG_RIGHT"] = {"IO_SWITCH_FLAG_RIGHT", 0x08, CONSTANT, true};
-
     std::vector<std::string> lines = split(sourceCode, '\n');
     std::string error;
-    if (!pass1(lines, error)) return "ERROR: " + error;
-    if (!pass2(lines, error)) return "ERROR: " + error;
+    std::vector<std::string> includeStack;
+    std::vector<std::string> expandedLines = preprocessIncludes(lines, error, includeStack);
+    if (!error.empty()) return "ERROR: " + error;
+
+    if (!pass1(expandedLines, error)) return "ERROR: " + error;
+    if (!pass2(expandedLines, error)) return "ERROR: " + error;
+
+    std::vector<std::pair<uint16_t, uint8_t>> image;
+    for (const auto& inst : instructions) {
+        for (size_t i = 0; i < inst.bytes.size(); ++i) {
+            image.push_back({static_cast<uint16_t>(inst.address + i), inst.bytes[i]});
+        }
+    }
+
+    std::sort(image.begin(), image.end(), [](const auto& a, const auto& b) {
+        return a.first < b.first;
+    });
 
     std::stringstream hexOutput;
-    for (const auto& inst : instructions) {
-        if (inst.bytes.empty()) continue;
-        uint8_t count = inst.bytes.size();
-        uint16_t addr = inst.address;
-        int checksum = count + (addr >> 8) + (addr & 0xFF);
+    size_t idx = 0;
+    const size_t recordSize = 0x20;
+    while (idx < image.size()) {
+        uint16_t startAddr = image[idx].first;
+        std::vector<uint8_t> record;
+        record.push_back(image[idx].second);
+        size_t j = idx + 1;
+        while (j < image.size() && record.size() < recordSize && image[j].first == static_cast<uint16_t>(startAddr + record.size())) {
+            record.push_back(image[j].second);
+            ++j;
+        }
+
+        uint8_t count = static_cast<uint8_t>(record.size());
+        int checksum = count + (startAddr >> 8) + (startAddr & 0xFF);
         hexOutput << ":" << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << (int)count
-                  << std::setw(4) << addr << "00";
-        for (uint8_t b : inst.bytes) {
+                  << std::setw(4) << startAddr << "00";
+        for (uint8_t b : record) {
             hexOutput << std::setw(2) << (int)b;
             checksum += b;
         }
         hexOutput << std::setw(2) << ((~checksum + 1) & 0xFF) << "\n";
+        idx = j;
     }
     hexOutput << ":00000001FF\n";
-    
+
     for (const auto& inst : instructions) generateListingLine(inst);
     LOGI("Assembly finished successfully.");
     return hexOutput.str();
@@ -247,30 +340,43 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         line = trim(line);
         if (line.empty()) continue;
 
-        // Check for EQU
         std::stringstream ssEqu(line);
         std::string label, equMnemonic;
         ssEqu >> label >> equMnemonic;
         if (toUpper(equMnemonic) == "EQU") {
             std::string expr; std::getline(ssEqu, expr);
-            int32_t val; if (evaluateExpression(expr, val)) symbolTable[label] = {label, val, CONSTANT, true};
+            int32_t val;
+            if (!evaluateExpression(expr, val)) {
+                error = "Invalid EQU expression at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            std::string labelKey = toUpper(label);
+            symbolTable[labelKey] = {label, val, CONSTANT, true};
             continue;
         }
 
         size_t colonPos = line.find(':');
         if (colonPos != std::string::npos) {
             std::string labelName = trim(line.substr(0, colonPos));
-            if (!labelName.empty()) symbolTable[labelName] = {labelName, (int32_t)currentAddress, LABEL, true};
+            if (!labelName.empty()) {
+                std::string labelKey = toUpper(labelName);
+                symbolTable[labelKey] = {labelName, (int32_t)currentAddress, LABEL, true};
+            }
             line = trim(line.substr(colonPos + 1));
         }
         if (line.empty()) continue;
-        
+
         std::stringstream ss(line);
         std::string mnemonic; ss >> mnemonic; mnemonic = toUpper(mnemonic);
         int size = 1;
         if (mnemonic == "ORG") {
             std::string valStr; std::getline(ss, valStr);
-            int32_t val; if (evaluateExpression(valStr, val)) currentAddress = (uint16_t)val;
+            int32_t val;
+            if (!evaluateExpression(valStr, val)) {
+                error = "Invalid ORG expression at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            currentAddress = (uint16_t)val;
             continue;
         } else if (mnemonic == "DB") {
             std::string args; std::getline(ss, args);
@@ -285,13 +391,13 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic == "JMP" || mnemonic == "JSR") {
             std::string rest; std::getline(ss, rest);
             size = (rest.find('(') != std::string::npos) ? 1 : 3;
-        } else if (mnemonic.substr(0, 3) == "LD." || mnemonic.substr(0, 3) == "ST.") {
+        } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             std::string rest; std::getline(ss, rest);
             std::vector<std::string> opList = split(rest, ',');
             std::string addrOp = (mnemonic[0] == 'L') ? (opList.size() > 1 ? opList[1] : "") : (opList.size() > 0 ? opList[0] : "");
             if (addrOp.find("SP") != std::string::npos && addrOp.find('+') != std::string::npos) size = 2;
             else if (addrOp.find('(') != std::string::npos) size = 1;
-            else if (!addrOp.empty() && addrOp[0] == '#') size = (mnemonic[2] == 'B' ? 2 : 3);
+            else if (!addrOp.empty() && addrOp[0] == '#') size = (mnemonic[3] == 'B' ? 2 : 3);
             else size = 3;
         }
         currentAddress += size;
@@ -321,14 +427,17 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         std::string label, equMnemonic;
         ssEqu >> label >> equMnemonic;
         if (toUpper(equMnemonic) == "EQU") {
-            inst.isDirective = true; inst.address = symbolTable[label].value;
-            instructions.push_back(inst); continue;
+            inst.isDirective = true;
+            auto it = symbolTable.find(toUpper(label));
+            inst.address = (it == symbolTable.end()) ? currentAddress : static_cast<uint16_t>(it->second.value);
+            instructions.push_back(inst);
+            continue;
         }
 
         size_t colonPos = line.find(':');
         if (colonPos != std::string::npos) line = trim(line.substr(colonPos + 1));
         if (line.empty()) { instructions.push_back(inst); continue; }
-        
+
         std::stringstream ss(line);
         std::string mnemonic; ss >> mnemonic; mnemonic = toUpper(mnemonic);
         if (mnemonic.empty()) { instructions.push_back(inst); continue; }
@@ -340,52 +449,115 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         std::string op2 = opList.size() > 1 ? opList[1] : "";
 
         if (mnemonic == "ORG") {
-            int32_t val; if (evaluateExpression(op1, val)) { currentAddress = (uint16_t)val; inst.address = currentAddress; }
+            int32_t val;
+            if (!evaluateExpression(op1, val)) {
+                error = "Invalid ORG expression at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            currentAddress = (uint16_t)val;
+            inst.address = currentAddress;
             inst.isDirective = true;
         } else if (mnemonic == "DB" || mnemonic == "DW") {
-            for (auto& v : opList) {
-                int32_t val; if (evaluateExpression(v, val)) {
+            if (opList.empty()) {
+                bytes.push_back(0x00);
+                if (mnemonic == "DW") bytes.push_back(0x00);
+            } else {
+                for (auto& v : opList) {
+                    int32_t val;
+                    if (!evaluateExpression(v, val)) {
+                        error = "Invalid " + mnemonic + " value at line " + std::to_string(lineNum) + ": " + expressionError;
+                        return false;
+                    }
                     bytes.push_back((uint8_t)(val & 0xFF));
                     if (mnemonic == "DW") bytes.push_back((uint8_t)((val >> 8) & 0xFF));
                 }
             }
         } else if (opcodeMap.count(mnemonic) && mnemonic[0] == 'B') {
-            int32_t target; evaluateExpression(op1, target);
+            int32_t target;
+            if (!evaluateExpression(op1, target)) {
+                error = "Invalid branch target at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
             int offset = target - (currentAddress + 2);
-            bytes.push_back(opcodeMap[mnemonic]); bytes.push_back((uint8_t)(offset & 0xFF));
+            if (offset < -128 || offset > 127) {
+                error = "Branch out of range at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(opcodeMap[mnemonic]);
+            bytes.push_back((uint8_t)(offset & 0xFF));
         } else if (mnemonic == "JMP" || mnemonic == "JSR") {
             if (op1.find('(') != std::string::npos) {
                 bytes.push_back(mnemonic == "JMP" ? 0xF2 : 0xCE);
             } else {
-                int32_t target; evaluateExpression(op1, target);
+                int32_t target;
+                if (!evaluateExpression(op1, target)) {
+                    error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
+                    return false;
+                }
                 bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCD);
-                bytes.push_back((uint8_t)(target & 0xFF)); bytes.push_back((uint8_t)((target >> 8) & 0xFF));
+                bytes.push_back((uint8_t)(target & 0xFF));
+                bytes.push_back((uint8_t)((target >> 8) & 0xFF));
             }
-        } else if (mnemonic.substr(0, 3) == "LD." || mnemonic.substr(0, 3) == "ST.") {
+        } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             encodeLoadStore(mnemonic, op1, op2, bytes, lineNum, error);
             if (!error.empty()) return false;
         } else if (mnemonic == "MOVE" || mnemonic == "AND" || mnemonic == "XOR" || mnemonic == "OR" || mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "CMP") {
             int r1 = parseRegister(op1), r2 = parseRegister(op2);
             if (r1 >= 0 && r2 >= 0) bytes.push_back(getALUOpcode(mnemonic, r1, r2));
-            else { error = "Invalid register at line " + std::to_string(lineNum); return false; }
+            else {
+                error = "Invalid register at line " + std::to_string(lineNum);
+                return false;
+            }
         } else if (mnemonic == "PUSH" || mnemonic == "POP") {
-            int r = parseRegister(op1); if (r >= 0) bytes.push_back((mnemonic == "POP" ? 0xC0 : 0xC8) + r);
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back((mnemonic == "POP" ? 0xC0 : 0xC8) + r);
         } else if (mnemonic == "CLR") {
-            int r = parseRegister(op1); if (r >= 0) bytes.push_back(getALUOpcode("XOR", r, r));
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in CLR at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(getALUOpcode("XOR", r, r));
         } else if (mnemonic == "INC" || mnemonic == "DEC") {
-            int r = parseRegister(op1); if (r >= 0) bytes.push_back((mnemonic == "INC" ? 0x50 : 0x58) + r * 4);
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back((mnemonic == "INC" ? 0x50 : 0x58) + r * 4);
         } else if (mnemonic == "ADDQ") {
-            int r = parseRegister(op1); int32_t val;
-            std::string valStr = op2; if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
-            evaluateExpression(valStr, val);
-            bytes.push_back((val >= 0 ? 0x50 : 0x58) + r * 4);
+            int r = parseRegister(op1);
+            int32_t val;
+            std::string valStr = op2;
+            if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
+            if (!evaluateExpression(valStr, val)) {
+                error = "Invalid ADDQ value at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            if (r < 0 || (val != 1 && val != 2 && val != -1 && val != -2)) {
+                error = "ADDQ supports only #1/#2/#-1/#-2 at line " + std::to_string(lineNum);
+                return false;
+            }
+            if (val == 1) bytes.push_back(0x50 + r * 4);
+            else if (val == 2) bytes.push_back(0x54 + r * 4);
+            else if (val == -1) bytes.push_back(0x58 + r * 4);
+            else bytes.push_back(0x5C + r * 4);
         } else if (mnemonic == "TEST") {
-            int r = parseRegister(op1); if (r >= 0) bytes.push_back(0x70 + (r * 4 + r));
+            int r = parseRegister(op1);
+            if (r < 0) {
+                error = "Invalid register in TEST at line " + std::to_string(lineNum);
+                return false;
+            }
+            bytes.push_back(0x70 + (r * 4 + r));
         } else if (opcodeMap.count(mnemonic)) {
             bytes.push_back(opcodeMap[mnemonic]);
-        } else if (mnemonic != "INCLUDE") {
-            LOGE("Unknown instruction '%s' at line %d", mnemonic.c_str(), lineNum);
-            bytes.push_back(0xFF);
+        } else {
+            error = "Unknown instruction '" + mnemonic + "' at line " + std::to_string(lineNum);
+            return false;
         }
         currentAddress += bytes.size();
         instructions.push_back(inst);
@@ -396,12 +568,12 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
 
 void Assembler::encodeLoadStore(const std::string& mnemonic, const std::string& op1, const std::string& op2,
                                 std::vector<uint8_t>& bytes, int lineNum, std::string& error) {
-    bool isLoad = (mnemonic[0] == 'L'), isByte = (mnemonic[3] == 'B');
+    bool isLoad = (mnemonic[0] == 'L');
+    bool isByte = (mnemonic.size() > 3 && mnemonic[3] == 'B');
     int reg = parseRegister(isLoad ? op1 : op2);
     std::string addrStr = isLoad ? op2 : op1;
 
     if (reg < 0) {
-        LOGE("LD/ST Error line %d: reg parse fail. op1='%s' op2='%s'", lineNum, op1.c_str(), op2.c_str());
         error = "Invalid register in LD/ST at line " + std::to_string(lineNum);
         return;
     }
@@ -410,26 +582,48 @@ void Assembler::encodeLoadStore(const std::string& mnemonic, const std::string& 
         size_t plusPos = addrStr.find('+');
         std::string offsetStr = addrStr.substr(plusPos + 1);
         while (!offsetStr.empty() && (offsetStr.back() == ')' || offsetStr.back() == ';')) offsetStr.pop_back();
-        int32_t offset; evaluateExpression(offsetStr, offset);
+        int32_t offset;
+        if (!evaluateExpression(offsetStr, offset)) {
+            error = "Invalid SP offset at line " + std::to_string(lineNum) + ": " + expressionError;
+            return;
+        }
         uint8_t base = isLoad ? (isByte ? 0xA4 : 0xA0) : (isByte ? 0xAC : 0xA8);
-        bytes.push_back(base + reg); bytes.push_back((uint8_t)(offset & 0xFF));
+        bytes.push_back(base + reg);
+        bytes.push_back((uint8_t)(offset & 0xFF));
     } else if (addrStr.find("++") != std::string::npos) {
         int ptrReg = (addrStr.find("R2") != std::string::npos || addrStr.find("r2") != std::string::npos) ? 2 : 3;
-        uint8_t base = 0x90; if (!isLoad) base += 8; if (isByte) base += 4;
-        if (ptrReg == 3) base += 2; if (reg == 1) base += 1;
+        uint8_t base = 0x90;
+        if (!isLoad) base += 8;
+        if (isByte) base += 4;
+        if (ptrReg == 3) base += 2;
+        if (reg == 1) base += 1;
         bytes.push_back(base);
     } else if (addrStr.find('(') != std::string::npos) {
         int ptrReg = (addrStr.find("R2") != std::string::npos || addrStr.find("r2") != std::string::npos) ? 2 : 3;
-        uint8_t base = 0x80; if (!isLoad) base += 8; if (isByte) base += 4;
-        if (ptrReg == 3) base += 2; if (reg == 1) base += 1;
+        uint8_t base = 0x80;
+        if (!isLoad) base += 8;
+        if (isByte) base += 4;
+        if (ptrReg == 3) base += 2;
+        if (reg == 1) base += 1;
         bytes.push_back(base);
     } else if (!addrStr.empty() && addrStr[0] == '#') {
-        int32_t value; evaluateExpression(addrStr.substr(1), value);
-        bytes.push_back(isByte ? (0xE4 + reg) : (0xE0 + reg));
-        bytes.push_back((uint8_t)(value & 0xFF)); if (!isByte) bytes.push_back((uint8_t)((value >> 8) & 0xFF));
+        int32_t value;
+        if (!evaluateExpression(addrStr.substr(1), value)) {
+            error = "Invalid immediate at line " + std::to_string(lineNum) + ": " + expressionError;
+            return;
+        }
+        bytes.push_back(isByte ? (0xD4 + reg) : (0xD0 + reg));
+        bytes.push_back((uint8_t)(value & 0xFF));
+        if (!isByte) bytes.push_back((uint8_t)((value >> 8) & 0xFF));
     } else {
-        int32_t addr; evaluateExpression(addrStr, addr);
+        int32_t addr;
+        if (!evaluateExpression(addrStr, addr)) {
+            error = "Invalid address expression at line " + std::to_string(lineNum) + ": " + expressionError;
+            return;
+        }
         uint8_t base = isLoad ? (isByte ? 0xB4 : 0xB0) : (isByte ? 0xBC : 0xB8);
-        bytes.push_back(base + reg); bytes.push_back((uint8_t)(addr & 0xFF)); bytes.push_back((uint8_t)((addr >> 8) & 0xFF));
+        bytes.push_back(base + reg);
+        bytes.push_back((uint8_t)(addr & 0xFF));
+        bytes.push_back((uint8_t)((addr >> 8) & 0xFF));
     }
 }
