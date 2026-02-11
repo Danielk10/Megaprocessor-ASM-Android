@@ -133,13 +133,18 @@ def run_example_regression():
 
     if actual_image != expected_image:
         all_addresses = sorted(set(expected_image) | set(actual_image))
-        mismatch_addr = next(
-            addr for addr in all_addresses if expected_image.get(addr) != actual_image.get(addr)
-        )
+        mismatches = [
+            addr
+            for addr in all_addresses
+            if expected_image.get(addr) != actual_image.get(addr)
+        ]
+        mismatch_addr = mismatches[0]
+        mismatch_preview = ", ".join(f"0x{addr:04X}" for addr in mismatches[:20])
         raise AssertionError(
-            "example.hex regression failed at address "
-            f"0x{mismatch_addr:04X}: expected 0x{expected_image.get(mismatch_addr, -1):02X}, "
-            f"got 0x{actual_image.get(mismatch_addr, -1):02X}"
+            "example.hex regression failed. "
+            f"mismatches={len(mismatches)}, first=0x{mismatch_addr:04X} "
+            f"(expected 0x{expected_image.get(mismatch_addr, -1):02X}, got 0x{actual_image.get(mismatch_addr, -1):02X}). "
+            f"preview: {mismatch_preview}"
         )
 
 
