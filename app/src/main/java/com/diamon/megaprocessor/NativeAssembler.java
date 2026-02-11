@@ -15,4 +15,6 @@ public class NativeAssembler {
     public native String assemble(String sourceCode);
 
     public native String getListing();
+
+    public native void registerIncludeFile(String includeName, String includeContent);
 }
