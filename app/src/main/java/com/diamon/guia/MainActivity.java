@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadInitialTabs() {
+        // tic_tac_toe_2.asm - Ejemplo del compilador oficial del Megaprocessor
         executorService.execute(() -> {
             try {
                 final String exampleAsm = readAssetText("example.asm");
