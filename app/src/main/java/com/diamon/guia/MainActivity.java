@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvStatus;
     private ExecutorService executorService;
     private Handler mainHandler;
-    private FloatingActionButton fabAssemble;
+    private FloatingActionButton fabAssemble, fabClear;
     private TabLayout tabLayout;
 
     // Gestión de pestañas: Nombre del archivo -> Contenido (Cacheando Spannables
@@ -104,9 +104,11 @@ public class MainActivity extends AppCompatActivity {
         etSource = findViewById(R.id.etSourceCode);
         tvStatus = findViewById(R.id.tvStatus);
         fabAssemble = findViewById(R.id.fabAssemble);
+        fabClear = findViewById(R.id.fabClear);
         tabLayout = findViewById(R.id.tabLayout);
 
         fabAssemble.setOnClickListener(v -> assembleCode());
+        fabClear.setOnClickListener(v -> showClearConfirmationDialog());
 
         setupTabLayout();
         setupEditorSyntaxHighlighting();
@@ -337,6 +339,20 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    private void showClearConfirmationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.confirm_clear_title)
+                .setMessage(R.string.confirm_clear_message)
+                .setPositiveButton("Limpiar", (dialog, which) -> {
+                    etSource.setText("");
+                    if (currentTabName != null) {
+                        tabFiles.put(currentTabName, "");
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
     private void showHexPopup(String hex) {
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         View popupView = inflater.inflate(R.layout.popup_hex, null);
@@ -408,31 +424,68 @@ public class MainActivity extends AppCompatActivity {
     private void applySyntaxHighlightingToEditor() {
         if (isApplyingSyntaxHighlight || isTabSwitching || etSource == null)
             return;
-        Editable text = etSource.getText();
-        if (text == null || text.length() == 0)
+
+        final Editable editable = etSource.getText();
+        if (editable == null || editable.length() == 0)
             return;
 
+        final String textStr = editable.toString();
         isApplyingSyntaxHighlight = true;
-        try {
-            ForegroundColorSpan[] spans = text.getSpans(0, text.length(), ForegroundColorSpan.class);
-            for (ForegroundColorSpan span : spans)
-                text.removeSpan(span);
 
-            highlightWithPattern(text, PATTERN_MNEMONIC, ContextCompat.getColor(this, R.color.syntax_mnemonic));
-            highlightWithPattern(text, PATTERN_DIRECTIVE, ContextCompat.getColor(this, R.color.syntax_directive));
-            highlightWithPattern(text, PATTERN_LABEL, ContextCompat.getColor(this, R.color.syntax_label));
-            highlightWithPattern(text, PATTERN_NUMBER, ContextCompat.getColor(this, R.color.syntax_number));
-            highlightWithPattern(text, PATTERN_COMMENT, ContextCompat.getColor(this, R.color.syntax_comment));
-        } finally {
-            isApplyingSyntaxHighlight = false;
+        // Colores para el resaltado
+        final int colorMnemonic = ContextCompat.getColor(this, R.color.syntax_mnemonic);
+        final int colorDirective = ContextCompat.getColor(this, R.color.syntax_directive);
+        final int colorLabel = ContextCompat.getColor(this, R.color.syntax_label);
+        final int colorNumber = ContextCompat.getColor(this, R.color.syntax_number);
+        final int colorComment = ContextCompat.getColor(this, R.color.syntax_comment);
+
+        executorService.execute(() -> {
+            try {
+                final List<SpanRange> spans = new ArrayList<>();
+                collectSpans(textStr, PATTERN_MNEMONIC, colorMnemonic, spans);
+                collectSpans(textStr, PATTERN_DIRECTIVE, colorDirective, spans);
+                collectSpans(textStr, PATTERN_LABEL, colorLabel, spans);
+                collectSpans(textStr, PATTERN_NUMBER, colorNumber, spans);
+                collectSpans(textStr, PATTERN_COMMENT, colorComment, spans);
+
+                mainHandler.post(() -> {
+                    // Verificar si el texto ha cambiado significativamente mientras procesábamos
+                    if (etSource == null || !etSource.getText().toString().equals(textStr))
+                        return;
+
+                    Editable currentText = etSource.getText();
+                    ForegroundColorSpan[] oldSpans = currentText.getSpans(0, currentText.length(),
+                            ForegroundColorSpan.class);
+                    for (ForegroundColorSpan span : oldSpans)
+                        currentText.removeSpan(span);
+
+                    for (SpanRange sr : spans) {
+                        if (sr.end <= currentText.length()) {
+                            currentText.setSpan(new ForegroundColorSpan(sr.color), sr.start, sr.end,
+                                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        }
+                    }
+                });
+            } finally {
+                isApplyingSyntaxHighlight = false;
+            }
+        });
+    }
+
+    private void collectSpans(String text, Pattern pattern, int color, List<SpanRange> out) {
+        Matcher matcher = pattern.matcher(text);
+        while (matcher.find()) {
+            out.add(new SpanRange(matcher.start(), matcher.end(), color));
         }
     }
 
-    private void highlightWithPattern(Editable text, Pattern pattern, int color) {
-        Matcher matcher = pattern.matcher(text);
-        while (matcher.find()) {
-            text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    private static class SpanRange {
+        int start, end, color;
+
+        SpanRange(int start, int end, int color) {
+            this.start = start;
+            this.end = end;
+            this.color = color;
         }
     }
 

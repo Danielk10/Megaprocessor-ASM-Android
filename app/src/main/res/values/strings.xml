@@ -21,4 +21,7 @@
     <string name="tab_new">Nueva Pestaña</string>
     <string name="tab_main">Principal.asm</string>
     <string name="btn_export_popup">Exportar a Descargas</string>
+    <string name="btn_clear">Limpiar</string>
+    <string name="confirm_clear_title">¿Limpiar código?</string>
+    <string name="confirm_clear_message">Se borrará todo el texto de la pestaña actual. Esta acción no se puede deshacer.</string>
 </resources>
