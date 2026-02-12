@@ -313,7 +313,7 @@ public class MainActivity extends AppCompatActivity {
         View popupView = inflater.inflate(R.layout.popup_hex, null);
 
         int width = ViewGroup.LayoutParams.MATCH_PARENT;
-        int height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        int height = ViewGroup.LayoutParams.MATCH_PARENT;
         final PopupWindow popupWindow = new PopupWindow(popupView, width, height, true);
 
         TextView tvPopupHex = popupView.findViewById(R.id.tvPopupHex);
