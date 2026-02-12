@@ -561,17 +561,16 @@ public class MainActivity extends AppCompatActivity {
             getContentResolver().update(uri, done, null, null);
             return true;
         }
-        try {
-            File downloadsDir = android.os.Environment
-                    .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
-            File dir = new File(downloadsDir, "Megaprocessor");
-            if (!dir.exists() && !dir.mkdirs())
-                return false;
-            File file = new File(dir, fileName);
-            try (FileOutputStream fos = new FileOutputStream(file)) {
-                fos.write(content.getBytes(StandardCharsets.UTF_8));
-                return true;
-            }
+        @SuppressWarnings("deprecation")
+        File downloadsDir = android.os.Environment
+                .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        File dir = new File(downloadsDir, "Megaprocessor");
+        if (!dir.exists() && !dir.mkdirs())
+            return false;
+        File file = new File(dir, fileName);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(content.getBytes(StandardCharsets.UTF_8));
+            return true;
         } catch (IOException e) {
             return false;
         }

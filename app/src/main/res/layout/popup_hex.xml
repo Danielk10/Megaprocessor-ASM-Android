@@ -52,7 +52,7 @@
                         android:textSize="14sp"
                         android:textColor="@color/on_surface"
                         android:scrollHorizontally="true"
-                        android:singleLine="false" />
+                        android:maxLines="5000" />
                 </HorizontalScrollView>
             </ScrollView>
 
