@@ -1,4 +1,4 @@
-package com.diamon.megaprocessor;
+package com.diamon.guia;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;

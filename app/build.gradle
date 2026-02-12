@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.diamon.megaprocessor'
+    namespace 'com.diamon.guia'
     compileSdk 36
 
     defaultConfig {
-        applicationId "com.diamon.megaprocessor"
+        applicationId "com.diamon.guia"
         minSdk 23
         targetSdk 36
         versionCode 1

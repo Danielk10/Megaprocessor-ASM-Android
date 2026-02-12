@@ -1,4 +1,4 @@
-package com.diamon.megaprocessor;
+package com.diamon.guia;
 
 public class NativeAssembler {
     static {

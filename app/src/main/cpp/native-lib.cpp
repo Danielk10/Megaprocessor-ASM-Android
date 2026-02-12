@@ -8,7 +8,7 @@ static std::string lastListing = "";
 static std::map<std::string, std::string> gIncludeFiles;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_diamon_megaprocessor_NativeAssembler_registerIncludeFile(
+Java_com_diamon_guia_NativeAssembler_registerIncludeFile(
         JNIEnv* env,
         jobject /* this */,
         jstring includeName,
@@ -31,7 +31,7 @@ Java_com_diamon_megaprocessor_NativeAssembler_registerIncludeFile(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_diamon_megaprocessor_NativeAssembler_getListing(
+Java_com_diamon_guia_NativeAssembler_getListing(
         JNIEnv* env,
         jobject /* this */) {
 
@@ -40,7 +40,7 @@ Java_com_diamon_megaprocessor_NativeAssembler_getListing(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_diamon_megaprocessor_NativeAssembler_assemble(
+Java_com_diamon_guia_NativeAssembler_assemble(
         JNIEnv* env,
         jobject /* this */,
         jstring sourceCode) {
