@@ -169,7 +169,10 @@ public class MainActivity extends AppCompatActivity {
     private void showAbout() {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.menu_about)
-                .setMessage("Megaprocessor ASM Android\nVersión 1.0\n\nDesarrollado por Daniel Diamon")
+                .setMessage("Megaprocessor ASM Android\n" +
+                        "Versión 1.0.8\n\n" +
+                        "Autor: Daniel Diamon (Danielk10)\n" +
+                        "Repositorio: https://github.com/Danielk10/Megaprocessor-ASM-Android")
                 .setPositiveButton("OK", null)
                 .show();
     }
