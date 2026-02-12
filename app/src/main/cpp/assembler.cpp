@@ -659,6 +659,27 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 return false;
             }
             bytes.push_back(getALUOpcode("AND", r, r));
+        } else if (mnemonic == "LSR") {
+            // LSR Rx, #n -> Opcode: 0xD8 + Rx, Operand: (-n) & 0x1F
+            int r = parseRegister(op1);
+            int32_t val;
+             std::string valStr = op2;
+            if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
+            if (!evaluateExpression(valStr, val)) {
+                error = "Invalid LSR shift value at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            if (r < 0) {
+                 error = "Invalid register in LSR at line " + std::to_string(lineNum);
+                 return false;
+            }
+            // Ensure shift amount is reasonable (e.g., 0-31)
+            // The hardware seems to take a 5-bit shift count.
+            // Based on life.lst: LSR R2, #1 -> DA 1F.
+            // DA = D8 + 2 (R2). 1F = -1 (5-bit).
+            
+            bytes.push_back(0xD8 + r);
+            bytes.push_back((uint8_t)((-val) & 0x1F));
         } else if (opcodeMap.count(mnemonic)) {
             bytes.push_back(opcodeMap[mnemonic]);
         } else {

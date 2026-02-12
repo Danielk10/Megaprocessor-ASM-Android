@@ -270,17 +270,23 @@ public class MainActivity extends AppCompatActivity {
                 // 3. Ensamblar
                 final String result = assembler.assemble(source);
 
-                mainHandler.post(() -> {
-                    if (result.startsWith("ERROR")) {
+                if (result.startsWith("ERROR")) {
+                    mainHandler.post(() -> {
                         setStatus(getString(R.string.status_failed), true);
                         showErrorDialog(result);
-                    } else {
-                        lastGeneratedHex = result;
-                        lastGeneratedList = assembler.getListing();
+                    });
+                } else {
+                    lastGeneratedHex = result;
+                    lastGeneratedList = assembler.getListing();
+
+                    // Optimization: Process hex coloring in background thread
+                    final CharSequence colorizedHex = colorizeHexOptimized(result);
+
+                    mainHandler.post(() -> {
                         setStatus(getString(R.string.status_success), false);
-                        showHexPopup(result);
-                    }
-                });
+                        showHexPopup(colorizedHex);
+                    });
+                }
             } catch (final Exception e) {
                 mainHandler.post(() -> setStatus("Error crítico: " + e.getMessage(), true));
             }
@@ -404,7 +410,7 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void showHexPopup(String hex) {
+    private void showHexPopup(CharSequence hexContent) {
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         View popupView = inflater.inflate(R.layout.popup_hex, null);
 
@@ -416,7 +422,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnClose = popupView.findViewById(R.id.btnClosePopup);
         Button btnExport = popupView.findViewById(R.id.btnExportPopup);
 
-        tvPopupHex.setText(colorizeHexOptimized(hex));
+        tvPopupHex.setText(hexContent);
 
         btnClose.setOnClickListener(v -> popupWindow.dismiss());
         btnExport.setOnClickListener(v -> {
