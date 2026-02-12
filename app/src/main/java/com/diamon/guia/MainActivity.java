@@ -61,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
 
     private NativeAssembler assembler;
     private EditText etSource;
-    private TextView tvStatus;
+    private TextView tvStatus, tvLineNumbers;
     private ExecutorService executorService;
     private Handler mainHandler;
     private FloatingActionButton fabAssemble, fabClear;
@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
 
         etSource = findViewById(R.id.etSourceCode);
         tvStatus = findViewById(R.id.tvStatus);
+        tvLineNumbers = findViewById(R.id.tvLineNumbers);
         fabAssemble = findViewById(R.id.fabAssemble);
         fabClear = findViewById(R.id.fabClear);
         tabLayout = findViewById(R.id.tabLayout);
@@ -342,6 +343,9 @@ public class MainActivity extends AppCompatActivity {
         etSource.setText(content != null ? content : "");
         isTabSwitching = false;
 
+        // Actualizar números de línea tras el cambio
+        updateLineNumbers();
+
         // Solo resaltar si no estaba cacheado o si es texto plano
         if (!isAlreadyHighlighted && content != null && content.length() > 0) {
             applySyntaxHighlightingToEditor();
@@ -424,10 +428,36 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable editable) {
                 if (!isTabSwitching) {
+                    updateLineNumbers();
                     scheduleSyntaxHighlighting();
                 }
             }
         });
+    }
+
+    private void updateLineNumbers() {
+        if (etSource == null || tvLineNumbers == null)
+            return;
+
+        String text = etSource.getText().toString();
+        int lineCount = 0;
+        if (text.isEmpty()) {
+            lineCount = 1;
+        } else {
+            // Contar saltos de línea manualmente para mayor precisión inmediata
+            for (int i = 0; i < text.length(); i++) {
+                if (text.charAt(i) == '\n') {
+                    lineCount++;
+                }
+            }
+            lineCount++; // La última línea no termina en \n habitualmente
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= lineCount; i++) {
+            sb.append(i).append("\n");
+        }
+        tvLineNumbers.setText(sb.toString());
     }
 
     private void scheduleSyntaxHighlighting() {

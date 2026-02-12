@@ -16,12 +16,17 @@
     <color name="on_surface">#000000</color>
     <color name="error">#B00020</color>
     
-    <!-- Syntax Highlighting -->
-    <color name="syntax_mnemonic">#0D47A1</color>
+    <!-- Syntax Highlighting (Notepad++ Style) -->
+    <color name="syntax_mnemonic">#0000FF</color>
     <color name="syntax_label">#7B1FA2</color>
-    <color name="syntax_directive">#00695C</color>
-    <color name="syntax_comment">#757575</color>
-    <color name="syntax_number">#E65100</color>
+    <color name="syntax_directive">#0000FF</color>
+    <color name="syntax_comment">#008000</color>
+    <color name="syntax_number">#FF8000</color>
+    
+    <!-- Line Numbers Column -->
+    <color name="line_numbers_bg">#F0F0F0</color>
+    <color name="line_numbers_text">#999999</color>
+    <color name="line_numbers_divider">#CCCCCC</color>
     
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
