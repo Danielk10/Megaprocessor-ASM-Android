@@ -1,3 +1,21 @@
 <resources>
-    <string name="app_name">Megaprocessor-ASM-Android</string>
+    <string name="app_name">Megaprocessor ASM Android</string>
+    <string name="btn_assemble">Ensamblar</string>
+    <string name="btn_export">Exportar</string>
+    <string name="btn_share">Compartir</string>
+    <string name="btn_docs">Instrucciones</string>
+    <string name="btn_web_sim">Simulador Web</string>
+    <string name="status_assembling">Ensamblando...</string>
+    <string name="status_failed">Error en el ensamblado</string>
+    <string name="status_success">Ensamblado con éxito</string>
+    <string name="status_loading">Cargando ejemplo...</string>
+    <string name="hint_editor">// Escribe aquí tu código assembly o carga un ejemplo</string>
+    <string name="menu_save">Guardar Proyecto</string>
+    <string name="menu_licenses">Licencias</string>
+    <string name="menu_privacy">Política de Privacidad</string>
+    <string name="menu_about">Acerca de</string>
+    <string name="title_generated_hex">Código HEX Generado</string>
+    <string name="btn_close">Cerrar</string>
+    <string name="pref_example_file">example.asm</string>
+    <string name="license_content">Megaprocessor ASM Android utiliza la licencia Apache 2.0. El Megaprocessor es un diseño original de James Newman.</string>
 </resources>

@@ -38,11 +38,11 @@ Esta aplicación utiliza **Android NDK** para ejecutar el ensamblador en código
 ## 🏗️ Arquitectura del Megaprocessor
 
 El Megaprocessor es un procesador de 16 bits con:
-- **Arquitectura**: Von Neumann modificada
+- **Arquitectura**: Procesador de 16-bit Load/Store con bus de datos externo de 8-bit
 - **Ancho de palabra**: 16 bits
-- **Registros**: 8 registros de propósito general
-- **Memoria**: Espacio de direccionamiento de 64KB
-- **Set de instrucciones**: RISC simplificado con ~40 instrucciones
+- **Registros**: 4 registros de propósito general (R0, R1, R2, R3) + SP, PS, PC
+- **Memoria**: Espacio de direccionamiento de 64KB (0x0000 - 0xFFFF)
+- **Set de instrucciones**: Opcodes de 1 byte con operandos variables (ALU, Branches, Memoria, Stack)
 
 Para más información sobre el Megaprocessor, visita: http://www.megaprocessor.com/
 
@@ -112,8 +112,9 @@ Comportamiento:
 
 Estado actual del repositorio: la verificación `./scripts/verify_hex_equivalence.sh` ya produce `PASS` para `tic_tac_toe_2.asm` vs `tic_tac_toe_2.hex` con el ensamblador C++ (Linux/NDK).
 
-También está integrado en GitH
-Si quieres publicar el `app-debug.apk` como un **Release** de GitHu
+También está integrado en **GitHub Actions** (`.github/workflows/verify-hex-equivalence.yml`), lo que asegura que cualquier cambio en el core C++ no rompa la compatibilidad con el binario oficial.
+
+Si quieres publicar el `app-debug.apk` como un **Release** de GitHub:
 1. Ve a **Actions > Build and release debug APK**.
 2. Pulsa **Run workflow**.
 3. Ingresa un `tag_name` (por ejemplo `debug-v1`).
@@ -165,18 +166,23 @@ Notas sobre exportación en Android:
 La aplicación incluye archivos de ejemplo como `tic_tac_toe_2.asm`:
 
 ```asm
-; Programa de ejemplo para Megaprocessor
-; Suma dos números y almacena el resultado
+; Ejemplo funcional para Megaprocessor
+include "Megaprocessor_defs.asm"
 
+        org 0x0000
 start:
-    LOAD R0, #5        ; Cargar 5 en R0
-    LOAD R1, #10       ; Cargar 10 en R1
-    ADD R2, R0, R1     ; R2 = R0 + R1
-    STORE R2, result   ; Guardar en memoria
-    HALT               ; Detener ejecución
+        ld.w  r0, #10      ; Cargar 10 en R0
+        ld.w  r1, #20      ; Cargar 20 en R1
+        add   r2, r0, r1   ; r2 = r0 + r1
+        st.w  result, r2   ; Guardar r2 en 'result'
+        jmp   loop         ; Bucle infinito
 
+loop:
+        jmp   loop
+
+        org 0x1000
 result:
-    .word 0            ; Espacio para resultado
+        dw    0x0000       ; Espacio para el resultado
 ```
 
 ## 📂 Estructura del Proyecto
@@ -184,27 +190,26 @@ result:
 ```
 Megaprocessor-ASM-Android/
 ├── app/
-│   ├── src/
-│   │   └── main/
-│   │       ├── cpp/                 # Código nativo C++
-│   │       │   ├── CMakeLists.txt   # Configuración CMake
-│   │       │   ├── native-lib.cpp   # Bridge JNI
-│   │       │   ├── assembler.cpp    # Lógica del ensamblador
-│   │       │   ├── assembler.h      # Headers del ensamblador
-│   │       │   └── utils.h          # Utilidades
-│   │       ├── java/                # Código Java/Kotlin
-│   │       │   └── com/diamon/megaprocessor/
-│   │       │       └── MainActivity.java
-│   │       ├── res/                 # Recursos (layouts, strings)
-│   │       ├── assets/              # Assets incluidos
-│   │       └── AndroidManifest.xml  # Manifiesto Android
-│   └── build.gradle                 # Configuración módulo app
-├── gradle/                          # Wrapper de Gradle
-├── build.gradle                     # Configuración proyecto raíz
-├── settings.gradle                  # Settings de Gradle
-├── tic_tac_toe_2.asm               # Ejemplo de código assembly
-├── README.md                        # Este archivo
-└── LICENSE                          # Licencia Apache-2.0
+│   ├── src/main/
+│   │   ├── cpp/                 # Core del Ensamblador (C++)
+│   │   │   ├── assembler.cpp/.h # Lógica de 2 pasadas
+│   │   │   ├── native-lib.cpp   # JNI Bridge
+│   │   │   └── utils.cpp/.h     # Helpers
+│   │   ├── java/.../            # NativeAssembler.java y MainActivity.java
+│   │   ├── assets/              # Megaprocessor_defs.asm, example.asm/hex
+│   │   └── res/                 # Layouts UI Android
+│   └── build.gradle             # Configuración NDK/Gradle
+├── tools/
+│   └── assembler-cli/           # Ejecutable CLI puro C++
+├── scripts/                     # Automatización (CI, SDK Setup, Verificación)
+├── verification/                # Casos de test y resultados (5/5 PASS)
+├── docs/                        # Documentación adicional
+├── .github/workflows/           # CI/CD (GitHub Actions)
+├── tic_tac_toe_2.asm/.hex/.lst # Programas de referencia
+├── life.asm, snail.asm, ...    # Otros ejemplos reales
+├── Megaprocessor_defs.asm      # Definiciones estándar de hardware
+├── gradlew.bat / gradlew        # Wrappers de compilación
+└── README.md                    # Este archivo
 ```
 
 ## 🛠️ Arquitectura Técnica
