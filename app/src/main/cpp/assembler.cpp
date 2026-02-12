@@ -436,7 +436,8 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic == "JMP" || mnemonic == "JSR") {
             std::string rest; std::getline(ss, rest);
             size = (rest.find('(') != std::string::npos) ? 1 : 3;
-        } else if (mnemonic == "LSR") {
+        } else if (mnemonic == "LSR" || mnemonic == "LSL" || mnemonic == "ASL" || mnemonic == "ASR" ||
+                   mnemonic == "ROL" || mnemonic == "ROR" || mnemonic == "ROXL" || mnemonic == "ROXR") {
             size = 2;
         } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             std::string rest; std::getline(ss, rest);
@@ -661,27 +662,63 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 return false;
             }
             bytes.push_back(getALUOpcode("AND", r, r));
-        } else if (mnemonic == "LSR") {
-            // LSR Rx, #n -> Opcode: 0xD8 + Rx, Operand: (-n) & 0x1F
+        } else if (mnemonic == "ASL" || mnemonic == "ASR" || mnemonic == "LSL" || mnemonic == "LSR" ||
+                   mnemonic == "ROL" || mnemonic == "ROR" || mnemonic == "ROXL" || mnemonic == "ROXR") {
             int r = parseRegister(op1);
-            int32_t val;
-             std::string valStr = op2;
-            if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
-            if (!evaluateExpression(valStr, val)) {
-                error = "Invalid LSR shift value at line " + std::to_string(lineNum) + ": " + expressionError;
+            if (r < 0) {
+                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
                 return false;
             }
-            if (r < 0) {
-                 error = "Invalid register in LSR at line " + std::to_string(lineNum);
+
+            int type = 0; // LSL/LSR
+            if (mnemonic == "ASL" || mnemonic == "ASR") type = 1;
+            else if (mnemonic == "ROL" || mnemonic == "ROR") type = 2;
+            else if (mnemonic == "ROXL" || mnemonic == "ROXR") type = 3;
+
+            bool isRight = (mnemonic.back() == 'R');
+            bool isRegShift = false;
+            int shiftVal = 0;
+            int srcReg = -1;
+
+            if (op2.empty()) {
+                 error = "Missing operand for " + mnemonic + " at line " + std::to_string(lineNum);
                  return false;
             }
-            // Ensure shift amount is reasonable (e.g., 0-31)
-            // The hardware seems to take a 5-bit shift count.
-            // Based on life.lst: LSR R2, #1 -> DA 1F.
-            // DA = D8 + 2 (R2). 1F = -1 (5-bit).
-            
+
+            // Check if second operand is a register
+            srcReg = parseRegister(op2);
+            if (srcReg >= 0) {
+                isRegShift = true;
+                if (isRight) {
+                     // In register mode, direction is determined by the register value (sign),
+                     // so the mnemonic should typically be the 'Left' version (LSL, ASL, etc.).
+                     // However, if user writes LSR R0, R1, we could map it to LSL R0, R1 assuming
+                     // they know R1 should be negative? Or block it?
+                     // opcodes.asm comments out lsr r0,r1. We will allow it but map to 'Left' opcode structure.
+                     // The hardware likely creates the shift amount from the register directly.
+                }
+            } else {
+                // Immediate
+                std::string valStr = op2;
+                if (valStr[0] == '#') valStr = valStr.substr(1);
+                if (!evaluateExpression(valStr, shiftVal)) {
+                    error = "Invalid shift value at line " + std::to_string(lineNum) + ": " + expressionError;
+                    return false;
+                }
+                if (isRight) shiftVal = -shiftVal;
+            }
+
+            uint8_t opByte = (type << 6);
+            if (isRegShift) {
+                opByte |= 0x20; // Bit 5 set for register shift
+                opByte |= (srcReg & 0x03);
+            } else {
+                opByte |= (shiftVal & 0x1F);
+            }
+
             bytes.push_back(0xD8 + r);
-            bytes.push_back((uint8_t)((-val) & 0x1F));
+            bytes.push_back(opByte);
+
         } else if (opcodeMap.count(mnemonic)) {
             bytes.push_back(opcodeMap[mnemonic]);
         } else {
