@@ -38,6 +38,12 @@ import android.app.AlertDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -82,6 +88,14 @@ public class MainActivity extends AppCompatActivity {
     private final Handler syntaxHandler = new Handler(Looper.getMainLooper());
     private Runnable syntaxRunnable;
     private static final long HIGHLIGHT_DELAY = 300; // ms
+
+    private final ActivityResultLauncher<String[]> openFileLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(),
+            uri -> {
+                if (uri != null) {
+                    handleFileOpen(uri);
+                }
+            });
 
     private static final Pattern PATTERN_MNEMONIC = Pattern.compile(
             "(?i)\\b(MOVE|AND|XOR|OR|ADD|SUB|CMP|LD|ST|BCC|BCS|BNE|BEQ|BVC|BVS|BPL|BMI|BGE|BLT|BGT|BLE|BUC|BUS|BHI|BLS|JMP|JSR|POP|PUSH|RET|RETI|TRAP|NOP|SXT|ABS|INV|NEG|CLR|INC|DEC|ADDQ|TEST|R0|R1|R2|R3|SP|PS|PC)\\b");
@@ -159,6 +173,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_new_tab) {
             showNewTabDialog();
             return true;
+        } else if (id == R.id.action_open) {
+            openFile();
+            return true;
         } else if (id == R.id.action_about) {
             showAbout();
             return true;
@@ -205,6 +222,46 @@ public class MainActivity extends AppCompatActivity {
                 .setMessage(R.string.license_content)
                 .setPositiveButton("OK", null)
                 .show();
+    }
+
+    private void openFile() {
+        openFileLauncher.launch(new String[] { "*/*" });
+    }
+
+    private void handleFileOpen(Uri uri) {
+        executorService.execute(() -> {
+            try (InputStream is = getContentResolver().openInputStream(uri);
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+
+                String content = sb.toString();
+
+                // Get filename
+                String fileName = "archivo_externo.asm";
+                try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                        if (nameIndex != -1) {
+                            fileName = cursor.getString(nameIndex);
+                        }
+                    }
+                }
+
+                final String finalName = fileName;
+                mainHandler.post(() -> {
+                    addNewTab(finalName, content);
+                    setStatus("Archivo cargado: " + finalName, false);
+                });
+
+            } catch (Exception e) {
+                mainHandler.post(() -> setStatus("Error al leer archivo: " + e.getMessage(), true));
+            }
+        });
     }
 
     private String readAssetText(String assetName) throws IOException {
