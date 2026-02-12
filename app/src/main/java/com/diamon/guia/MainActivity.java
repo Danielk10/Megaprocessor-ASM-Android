@@ -347,7 +347,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnClose = popupView.findViewById(R.id.btnClosePopup);
         Button btnExport = popupView.findViewById(R.id.btnExportPopup);
 
-        tvPopupHex.setText(colorizeHexOptimized(normalizeHex(hex)));
+        tvPopupHex.setText(colorizeHexOptimized(hex));
 
         btnClose.setOnClickListener(v -> popupWindow.dismiss());
         btnExport.setOnClickListener(v -> {
@@ -529,69 +529,6 @@ public class MainActivity extends AppCompatActivity {
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             exportFilesInternal();
         }
-    }
-
-    private String normalizeHex(String hexContent) {
-        if (hexContent == null)
-            return "";
-        Map<Integer, Byte> image = parseHexImage(hexContent);
-        if (image.isEmpty())
-            return hexContent.trim();
-        List<Integer> addresses = new ArrayList<>(image.keySet());
-        Collections.sort(addresses);
-        StringBuilder normalized = new StringBuilder();
-        int recordSize = 0x10;
-        int index = 0;
-        while (index < addresses.size()) {
-            int start = addresses.get(index);
-            List<Byte> data = new ArrayList<>();
-            data.add(image.get(start));
-            index++;
-            while (index < addresses.size() && data.size() < recordSize) {
-                if (addresses.get(index) != start + data.size())
-                    break;
-                data.add(image.get(addresses.get(index)));
-                index++;
-            }
-            normalized.append(formatRecord(start, data)).append("\n");
-        }
-        normalized.append(":00000001FF\n");
-        return normalized.toString();
-    }
-
-    private String formatRecord(int address, List<Byte> data) {
-        int checksum = data.size() + ((address >> 8) & 0xFF) + (address & 0xFF);
-        StringBuilder line = new StringBuilder(":").append(String.format("%02X%04X00", data.size(), address & 0xFFFF));
-        for (byte b : data) {
-            int u = b & 0xFF;
-            checksum += u;
-            line.append(String.format("%02X", u));
-        }
-        line.append(String.format("%02X", ((~checksum + 1) & 0xFF)));
-        return line.toString();
-    }
-
-    private Map<Integer, Byte> parseHexImage(String hex) {
-        Map<Integer, Byte> image = new LinkedHashMap<>();
-        if (hex == null)
-            return image;
-        for (String raw : hex.split("\\r?\\n")) {
-            String line = raw.trim();
-            if (!line.startsWith(":") || line.length() < 11)
-                continue;
-            try {
-                int count = Integer.parseInt(line.substring(1, 3), 16);
-                int address = Integer.parseInt(line.substring(3, 7), 16);
-                if (Integer.parseInt(line.substring(7, 9), 16) != 0)
-                    continue;
-                for (int i = 0; i < count; i++) {
-                    int val = Integer.parseInt(line.substring(9 + i * 2, 11 + i * 2), 16);
-                    image.put(address + i, (byte) val);
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return image;
     }
 
     private SpannableStringBuilder colorizeHexOptimized(String hex) {
