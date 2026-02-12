@@ -18,4 +18,7 @@
     <string name="btn_close">Cerrar</string>
     <string name="pref_example_file">example.asm</string>
     <string name="license_content">Este proyecto utiliza tecnología basada en el Megaprocessor original creado por James Newman (v1.0.8). El software Android es de código abierto bajo la licencia MIT. Megaprocessor es una marca registrada de James Newman.</string>
+    <string name="tab_new">Nueva Pestaña</string>
+    <string name="tab_main">Principal.asm</string>
+    <string name="btn_export_popup">Exportar a Descargas</string>
 </resources>

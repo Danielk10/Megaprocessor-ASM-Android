@@ -33,6 +33,7 @@ import android.content.Intent;
 import android.app.AlertDialog;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.tabs.TabLayout;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -62,12 +63,15 @@ public class MainActivity extends AppCompatActivity {
     private ExecutorService executorService;
     private Handler mainHandler;
     private FloatingActionButton fabAssemble;
-    private Button btnExport;
-    private Button btnShare;
-    private Button btnDocs;
-    private Button btnWebSim;
+    private TabLayout tabLayout;
+
+    // Gestión de pestañas: Nombre del archivo -> Contenido
+    private final Map<String, String> tabFiles = new LinkedHashMap<>();
+    private String currentTabName = "";
+
     private boolean isApplyingSyntaxHighlight = false;
     private String lastGeneratedHex = "";
+    private String lastGeneratedList = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,21 +88,40 @@ public class MainActivity extends AppCompatActivity {
         etSource = findViewById(R.id.etSourceCode);
         tvStatus = findViewById(R.id.tvStatus);
         fabAssemble = findViewById(R.id.fabAssemble);
-        btnExport = findViewById(R.id.btnExport);
-        btnShare = findViewById(R.id.btnShare);
-        btnDocs = findViewById(R.id.btnDocs);
-        btnWebSim = findViewById(R.id.btnWebSim);
+        tabLayout = findViewById(R.id.tabLayout);
 
         fabAssemble.setOnClickListener(v -> assembleCode());
-        btnExport.setOnClickListener(v -> exportFiles());
-        btnShare.setOnClickListener(v -> shareProject());
-        btnDocs.setOnClickListener(v -> openInstructionsDocs());
-        btnWebSim.setOnClickListener(v -> openWebSimulator());
 
+        setupTabLayout();
         setupEditorSyntaxHighlighting();
 
-        // Auto-load example
-        loadExample();
+        // Cargar definiciones por defecto
+        tabFiles.put("Megaprocessor_defs.asm", "; Definiciones del sistema\n");
+
+        // Auto-load example and defs
+        loadInitialTabs();
+    }
+
+    private void loadInitialTabs() {
+        executorService.execute(() -> {
+            try {
+                final String exampleAsm = readAssetText("example.asm");
+                final String defsAsm = readAssetText("Megaprocessor_defs.asm");
+
+                mainHandler.post(() -> {
+                    tabFiles.put(getString(R.string.tab_main), exampleAsm);
+                    tabFiles.put("Megaprocessor_defs.asm", defsAsm);
+
+                    // Actualizar vista si estamos en esa pestaña
+                    if (currentTabName.equals(getString(R.string.tab_main))) {
+                        etSource.setText(exampleAsm);
+                        applySyntaxHighlightingToEditor();
+                    }
+                });
+            } catch (IOException e) {
+                mainHandler.post(() -> setStatus("Error al cargar archivos iniciales", true));
+            }
+        });
     }
 
     @Override
@@ -112,6 +135,9 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         if (id == R.id.action_save) {
             exportFiles();
+            return true;
+        } else if (id == R.id.action_new_tab) {
+            showNewTabDialog();
             return true;
         } else if (id == R.id.action_about) {
             showAbout();
@@ -176,24 +202,15 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loadExample() {
-        setStatus(getString(R.string.status_loading), false);
-        executorService.execute(() -> {
-            try {
-                final String asmContent = readAssetText("example.asm");
-                mainHandler.post(() -> {
-                    etSource.setText(asmContent);
-                    applySyntaxHighlightingToEditor();
-                });
-            } catch (final IOException e) {
-                mainHandler.post(() -> setStatus("Error al cargar ejemplo", true));
-            }
-        });
-    }
-
     private void assembleCode() {
-        final String source = etSource.getText().toString();
-        if (source.trim().isEmpty()) {
+        if (currentTabName == null || currentTabName.isEmpty())
+            return;
+
+        // Guardar contenido actual antes de ensamblar
+        tabFiles.put(currentTabName, etSource.getText().toString());
+
+        final String source = tabFiles.get(currentTabName);
+        if (source == null || source.trim().isEmpty()) {
             setStatus("El código está vacío", true);
             return;
         }
@@ -202,7 +219,14 @@ public class MainActivity extends AppCompatActivity {
 
         executorService.execute(() -> {
             try {
+                // Registrar todos los archivos abiertos como includes
+                for (Map.Entry<String, String> entry : tabFiles.entrySet()) {
+                    assembler.registerIncludeFile(entry.getKey(), entry.getValue());
+                }
+
+                // Asegurar que las defs del sistema estén siempre
                 registerDefaultIncludes();
+
                 final String result = assembler.assemble(source);
 
                 mainHandler.post(() -> {
@@ -211,6 +235,7 @@ public class MainActivity extends AppCompatActivity {
                         showErrorDialog(result);
                     } else {
                         lastGeneratedHex = result;
+                        lastGeneratedList = assembler.getListing();
                         setStatus(getString(R.string.status_success), false);
                         showHexPopup(result);
                     }
@@ -219,6 +244,49 @@ public class MainActivity extends AppCompatActivity {
                 mainHandler.post(() -> setStatus("Error crítico: " + e.getMessage(), true));
             }
         });
+    }
+
+    private void setupTabLayout() {
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                switchTab(tab.getText().toString());
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // Guardar contenido de la pestaña que se deja
+                if (tab.getText() != null) {
+                    tabFiles.put(tab.getText().toString(), etSource.getText().toString());
+                }
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
+        });
+
+        // Menú contextual o botón para añadir pestañas podría ir aquí,
+        // por ahora añadimos las básicas
+        addNewTab(getString(R.string.tab_main), "");
+        addNewTab("Megaprocessor_defs.asm", "");
+    }
+
+    private void addNewTab(String name, String content) {
+        tabFiles.put(name, content);
+        TabLayout.Tab tab = tabLayout.newTab().setText(name);
+        tabLayout.addTab(tab);
+        if (tabLayout.getTabCount() == 1) {
+            tab.select();
+            currentTabName = name;
+        }
+    }
+
+    private void switchTab(String name) {
+        currentTabName = name;
+        String content = tabFiles.get(name);
+        etSource.setText(content != null ? content : "");
+        applySyntaxHighlightingToEditor();
     }
 
     private void showErrorDialog(String error) {
@@ -233,17 +301,41 @@ public class MainActivity extends AppCompatActivity {
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         View popupView = inflater.inflate(R.layout.popup_hex, null);
 
-        int width = LinearLayout.LayoutParams.MATCH_PARENT;
-        int height = LinearLayout.LayoutParams.MATCH_PARENT;
+        int width = ViewGroup.LayoutParams.MATCH_PARENT;
+        int height = ViewGroup.LayoutParams.WRAP_CONTENT;
         final PopupWindow popupWindow = new PopupWindow(popupView, width, height, true);
 
         TextView tvPopupHex = popupView.findViewById(R.id.tvPopupHex);
         Button btnClose = popupView.findViewById(R.id.btnClosePopup);
+        Button btnExport = popupView.findViewById(R.id.btnExportPopup);
 
         tvPopupHex.setText(colorizeHexOptimized(normalizeHex(hex)));
+
         btnClose.setOnClickListener(v -> popupWindow.dismiss());
+        btnExport.setOnClickListener(v -> {
+            exportFiles();
+            popupWindow.dismiss();
+        });
 
         popupWindow.showAtLocation(findViewById(android.R.id.content), Gravity.CENTER, 0, 0);
+    }
+
+    private void showNewTabDialog() {
+        EditText etName = new EditText(this);
+        etName.setHint("nombre_archivo.asm");
+        new AlertDialog.Builder(this)
+                .setTitle("Nuevo Archivo ASM")
+                .setView(etName)
+                .setPositiveButton("Crear", (dialog, which) -> {
+                    String name = etName.getText().toString().trim();
+                    if (!name.isEmpty()) {
+                        if (!name.endsWith(".asm"))
+                            name += ".asm";
+                        addNewTab(name, "");
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void setupEditorSyntaxHighlighting() {
@@ -304,24 +396,6 @@ public class MainActivity extends AppCompatActivity {
             text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(),
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
-    }
-
-    private void shareProject() {
-        String source = etSource.getText().toString();
-        String hex = lastGeneratedHex;
-        String lst = assembler.getListing();
-
-        if (source.trim().isEmpty()) {
-            setStatus("Nada que compartir", true);
-            return;
-        }
-
-        String payload = "# Megaprocessor Project\n\n## ASM\n" + source + "\n\n## HEX\n" + hex + "\n\n## LST\n" + lst;
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.setType("text/plain");
-        intent.putExtra(Intent.EXTRA_SUBJECT, "Proyecto Megaprocessor");
-        intent.putExtra(Intent.EXTRA_TEXT, payload);
-        startActivity(Intent.createChooser(intent, "Compartir vía"));
     }
 
     private void openInstructionsDocs() {

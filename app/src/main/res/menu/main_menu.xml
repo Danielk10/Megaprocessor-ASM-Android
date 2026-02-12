@@ -1,6 +1,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_new_tab"
+        android:title="@string/tab_new"
+        android:icon="@android:drawable/ic_menu_add"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_save"
         android:title="@string/menu_save"
         android:icon="@android:drawable/ic_menu_save"
