@@ -325,6 +325,8 @@ public class MainActivity extends AppCompatActivity {
         isTabSwitching = true;
         etSource.setText(content != null ? content : "");
         isTabSwitching = false;
+        // Forzar resaltado tras el cambio para asegurar que la pestaña tenga color
+        applySyntaxHighlightingToEditor();
     }
 
     private void showErrorDialog(String error) {
