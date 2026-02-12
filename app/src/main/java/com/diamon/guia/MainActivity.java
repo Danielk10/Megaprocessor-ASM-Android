@@ -201,22 +201,15 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void registerDefaultIncludes() {
-        try {
-            String defs = readAssetText("Megaprocessor_defs.asm");
-            assembler.registerIncludeFile("Megaprocessor_defs.asm", defs);
-        } catch (IOException e) {
-            setStatus("Error: no se pudo cargar Megaprocessor_defs.asm", true);
-        }
-    }
-
     private String readAssetText(String assetName) throws IOException {
-        try (BufferedInputStream bis = new BufferedInputStream(getAssets().open(assetName))) {
-            byte[] buffer = new byte[bis.available()];
-            int read = bis.read(buffer);
-            if (read < 0)
-                return "";
-            return new String(buffer, 0, read);
+        try (BufferedInputStream bis = new BufferedInputStream(getAssets().open(assetName));
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = bis.read(buffer)) != -1) {
+                baos.write(buffer, 0, read);
+            }
+            return new String(baos.toByteArray(), StandardCharsets.UTF_8);
         }
     }
 
@@ -253,14 +246,22 @@ public class MainActivity extends AppCompatActivity {
 
         executorService.execute(() -> {
             try {
-                // Registrar todos los archivos abiertos como includes
+                // 1. Cargar definiciones base del sistema si NO están en las pestañas
+                if (!tabFiles.containsKey("Megaprocessor_defs.asm")) {
+                    try {
+                        String defs = readAssetText("Megaprocessor_defs.asm");
+                        assembler.registerIncludeFile("Megaprocessor_defs.asm", defs);
+                    } catch (IOException e) {
+                        mainHandler.post(() -> setStatus("Aviso: no se cargaron defs base", false));
+                    }
+                }
+
+                // 2. Registrar todos los archivos abiertos (prioridad a ediciones del usuario)
                 for (Map.Entry<String, CharSequence> entry : tabFiles.entrySet()) {
                     assembler.registerIncludeFile(entry.getKey(), entry.getValue().toString());
                 }
 
-                // Asegurar que las defs del sistema estén siempre
-                registerDefaultIncludes();
-
+                // 3. Ensamblar
                 final String result = assembler.assemble(source);
 
                 mainHandler.post(() -> {
