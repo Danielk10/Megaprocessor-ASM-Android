@@ -360,7 +360,7 @@ public class MainActivity extends AppCompatActivity {
         final String lst = assembler.getListing();
         final String timestamp = String.valueOf(System.currentTimeMillis());
         final String hexName = "megaprocessor_" + timestamp + ".hex";
-        final String lstName = "megaprocessor_" + timestamp + ".lst";
+        final String lstName = "megaprocessor_" + timestamp + ".list";
 
         setStatus("Exportando a Descargas...", false);
         executorService.execute(() -> {
@@ -375,8 +375,11 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentValues values = new ContentValues();
             values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName);
-            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "text/plain");
-            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream"); // Forzamos tipo
+                                                                                                     // binario para
+                                                                                                     // evitar .txt
+            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS + "/Megaprocessor");
             values.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
             Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
             if (uri == null)
@@ -394,8 +397,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         try {
-            File dir = android.os.Environment
+            File downloadsDir = android.os.Environment
                     .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+            File dir = new File(downloadsDir, "Megaprocessor");
             if (!dir.exists() && !dir.mkdirs())
                 return false;
             File file = new File(dir, fileName);
