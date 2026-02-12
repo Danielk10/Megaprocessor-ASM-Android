@@ -27,6 +27,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
@@ -314,11 +315,40 @@ public class MainActivity extends AppCompatActivity {
 
     private void addNewTab(String name, String content) {
         tabFiles.put(name, content);
-        TabLayout.Tab tab = tabLayout.newTab().setText(name);
+        TabLayout.Tab tab = tabLayout.newTab();
+        tab.setText(name); // Para que onTabUnselected siga funcionando
+
+        View customView = LayoutInflater.from(this).inflate(R.layout.tab_item, null);
+        TextView tvTitle = customView.findViewById(R.id.tabTitle);
+        ImageButton btnRemove = customView.findViewById(R.id.btnRemoveTab);
+
+        tvTitle.setText(name);
+        btnRemove.setOnClickListener(v -> removeTab(tab));
+
+        tab.setCustomView(customView);
         tabLayout.addTab(tab);
+
         if (tabLayout.getTabCount() == 1) {
             tab.select();
             currentTabName = name;
+        }
+    }
+
+    private void removeTab(TabLayout.Tab tab) {
+        String name = "";
+        if (tab.getText() != null) {
+            name = tab.getText().toString();
+        }
+
+        // Eliminar del layout. Esto disparará los listeners de selección.
+        tabLayout.removeTab(tab);
+
+        // Eliminar de nuestra base de datos en memoria
+        tabFiles.remove(name);
+
+        // Si ya no quedan pestañas, crear una nueva vacía
+        if (tabLayout.getTabCount() == 0) {
+            addNewTab("Sin título", "");
         }
     }
 
