@@ -73,6 +73,18 @@ public class MainActivity extends AppCompatActivity {
     private String lastGeneratedHex = "";
     private String lastGeneratedList = "";
 
+    // Optimizaciones de Resaltado
+    private final Handler syntaxHandler = new Handler(Looper.getMainLooper());
+    private Runnable syntaxRunnable;
+    private static final long HIGHLIGHT_DELAY = 300; // ms
+
+    private static final Pattern PATTERN_MNEMONIC = Pattern.compile(
+            "(?i)\\b(MOVE|AND|XOR|OR|ADD|SUB|CMP|LD|ST|BCC|BCS|BNE|BEQ|BVC|BVS|BPL|BMI|BGE|BLT|BGT|BLE|BUC|BUS|BHI|BLS|JMP|JSR|POP|PUSH|RET|RETI|TRAP|NOP|SXT|ABS|INV|NEG|CLR|INC|DEC|ADDQ|TEST|R0|R1|R2|R3|SP|PS|PC)\\b");
+    private static final Pattern PATTERN_DIRECTIVE = Pattern.compile("(?i)\\b(ORG|EQU|DB|DW|DL|DM|DS|INCLUDE)\\b");
+    private static final Pattern PATTERN_LABEL = Pattern.compile("(?m)^\\s*[A-Za-z_][A-Za-z0-9_]*:");
+    private static final Pattern PATTERN_NUMBER = Pattern.compile("\\b(0x[0-9A-Fa-f]+|\\d+)\\b");
+    private static final Pattern PATTERN_COMMENT = Pattern.compile("(;.*$|//.*$)");
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,10 +107,7 @@ public class MainActivity extends AppCompatActivity {
         setupTabLayout();
         setupEditorSyntaxHighlighting();
 
-        // Cargar definiciones por defecto
-        tabFiles.put("Megaprocessor_defs.asm", "; Definiciones del sistema\n");
-
-        // Auto-load example and defs
+        // Cargar definiciones iniciales (Asíncrono)
         loadInitialTabs();
     }
 
@@ -113,10 +122,10 @@ public class MainActivity extends AppCompatActivity {
                     tabFiles.put(getString(R.string.tab_main), exampleAsm);
                     tabFiles.put("Megaprocessor_defs.asm", defsAsm);
 
-                    // Actualizar vista si estamos en esa pestaña
-                    if (currentTabName.equals(getString(R.string.tab_main))) {
-                        etSource.setText(exampleAsm);
-                        applySyntaxHighlightingToEditor();
+                    // Actualizar el editor solo si la pestaña actual coincide
+                    String currentContent = tabFiles.get(currentTabName);
+                    if (currentContent != null) {
+                        etSource.setText(currentContent);
                     }
                 });
             } catch (IOException e) {
@@ -284,10 +293,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void switchTab(String name) {
+        if (name.equals(currentTabName))
+            return;
         currentTabName = name;
         String content = tabFiles.get(name);
         etSource.setText(content != null ? content : "");
-        applySyntaxHighlightingToEditor();
     }
 
     private void showErrorDialog(String error) {
@@ -351,48 +361,48 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                applySyntaxHighlightingToEditor();
+                scheduleSyntaxHighlighting();
             }
         });
+    }
+
+    private void scheduleSyntaxHighlighting() {
+        if (syntaxRunnable != null) {
+            syntaxHandler.removeCallbacks(syntaxRunnable);
+        }
+        syntaxRunnable = this::applySyntaxHighlightingToEditor;
+        syntaxHandler.postDelayed(syntaxRunnable, HIGHLIGHT_DELAY);
     }
 
     private void applySyntaxHighlightingToEditor() {
         if (isApplyingSyntaxHighlight || etSource == null)
             return;
         Editable text = etSource.getText();
-        if (text == null)
+        if (text == null || text.length() == 0)
             return;
 
         isApplyingSyntaxHighlight = true;
-        ForegroundColorSpan[] spans = text.getSpans(0, text.length(), ForegroundColorSpan.class);
-        for (ForegroundColorSpan span : spans)
-            text.removeSpan(span);
+        try {
+            ForegroundColorSpan[] spans = text.getSpans(0, text.length(), ForegroundColorSpan.class);
+            for (ForegroundColorSpan span : spans)
+                text.removeSpan(span);
 
-        // Mnemonics & Registers
-        highlightRegex(text,
-                "(?i)\\b(MOVE|AND|XOR|OR|ADD|SUB|CMP|LD|ST|BCC|BCS|BNE|BEQ|BVC|BVS|BPL|BMI|BGE|BLT|BGT|BLE|BUC|BUS|BHI|BLS|JMP|JSR|POP|PUSH|RET|RETI|TRAP|NOP|SXT|ABS|INV|NEG|CLR|INC|DEC|ADDQ|TEST)\\b",
-                ContextCompat.getColor(this, R.color.syntax_mnemonic));
-        highlightRegex(text, "(?i)\\b(R0|R1|R2|R3|SP|PS|PC)\\b", ContextCompat.getColor(this, R.color.syntax_mnemonic));
+            String content = text.toString();
 
-        // Directives
-        highlightRegex(text, "(?i)\\b(ORG|EQU|DB|DW|DL|DM|DS|INCLUDE)\\b",
-                ContextCompat.getColor(this, R.color.syntax_directive));
-
-        // Labels
-        highlightRegex(text, "(?m)^\\s*[A-Za-z_][A-Za-z0-9_]*:", ContextCompat.getColor(this, R.color.syntax_label));
-
-        // Numbers
-        highlightRegex(text, "\\b(0x[0-9A-Fa-f]+|\\d+)\\b", ContextCompat.getColor(this, R.color.syntax_number));
-
-        // Comments
-        highlightRegex(text, "(;.*$|//.*$)", ContextCompat.getColor(this, R.color.syntax_comment));
-
-        isApplyingSyntaxHighlight = false;
+            highlightWithPattern(text, content, PATTERN_MNEMONIC,
+                    ContextCompat.getColor(this, R.color.syntax_mnemonic));
+            highlightWithPattern(text, content, PATTERN_DIRECTIVE,
+                    ContextCompat.getColor(this, R.color.syntax_directive));
+            highlightWithPattern(text, content, PATTERN_LABEL, ContextCompat.getColor(this, R.color.syntax_label));
+            highlightWithPattern(text, content, PATTERN_NUMBER, ContextCompat.getColor(this, R.color.syntax_number));
+            highlightWithPattern(text, content, PATTERN_COMMENT, ContextCompat.getColor(this, R.color.syntax_comment));
+        } finally {
+            isApplyingSyntaxHighlight = false;
+        }
     }
 
-    private void highlightRegex(Editable text, String regex, int color) {
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(text.toString());
+    private void highlightWithPattern(Editable text, String content, Pattern pattern, int color) {
+        Matcher matcher = pattern.matcher(content);
         while (matcher.find()) {
             text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(),
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -568,13 +578,26 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             int start = builder.length();
             builder.append(String.format(Locale.US, "%04d | %s\n", i + 1, line));
-            if (line.startsWith(":")) {
-                builder.setSpan(new ForegroundColorSpan(Color.BLUE), start + 7, start + 16, 0);
-                if (line.length() > 11) {
-                    builder.setSpan(new ForegroundColorSpan(Color.BLACK), start + 16, start + 7 + line.length() - 2, 0);
+
+            int hexStart = start + 7; // Tras el prefijo "0001 | "
+            int lineLen = line.length();
+
+            if (line.startsWith(":") && lineLen >= 1) {
+                // Prefijo : (azul) y metadatos
+                int headerEnd = Math.min(hexStart + 9, hexStart + lineLen);
+                builder.setSpan(new ForegroundColorSpan(Color.BLUE), hexStart, headerEnd, 0);
+
+                // Datos (negro)
+                if (lineLen > 11) {
+                    builder.setSpan(new ForegroundColorSpan(Color.BLACK), hexStart + 9, hexStart + lineLen - 2, 0);
+                    // Checksum (verde)
+                    builder.setSpan(new ForegroundColorSpan(Color.parseColor("#008000")), hexStart + lineLen - 2,
+                            hexStart + lineLen, 0);
+                } else if (lineLen > 9) {
+                    // Solo checksum si es corto (poco probable pero posible)
+                    builder.setSpan(new ForegroundColorSpan(Color.parseColor("#008000")), hexStart + lineLen - 2,
+                            hexStart + lineLen, 0);
                 }
-                builder.setSpan(new ForegroundColorSpan(Color.parseColor("#008000")), start + 7 + line.length() - 2,
-                        start + 7 + line.length(), 0);
             }
         }
         return builder;
