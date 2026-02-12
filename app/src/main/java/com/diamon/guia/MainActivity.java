@@ -129,9 +129,9 @@ public class MainActivity extends AppCompatActivity {
                     // Actualizar el editor solo si la pestaña actual coincide
                     CharSequence currentContent = tabFiles.get(currentTabName);
                     if (currentContent != null) {
-                        isTabSwitching = true;
                         etSource.setText(currentContent);
-                        isTabSwitching = false;
+                        // Forzar resaltado inicial después de cargar el texto
+                        applySyntaxHighlightingToEditor();
                     }
                 });
             } catch (IOException e) {
