@@ -17,5 +17,5 @@
     <string name="title_generated_hex">Código HEX Generado</string>
     <string name="btn_close">Cerrar</string>
     <string name="pref_example_file">example.asm</string>
-    <string name="license_content">Megaprocessor ASM Android utiliza la licencia Apache 2.0. El Megaprocessor es un diseño original de James Newman.</string>
+    <string name="license_content">Este proyecto utiliza tecnología basada en el Megaprocessor original creado por James Newman (v1.0.8). El software Android es de código abierto bajo la licencia MIT. Megaprocessor es una marca registrada de James Newman.</string>
 </resources>

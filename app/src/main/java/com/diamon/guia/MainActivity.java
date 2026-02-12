@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
             showLicenses();
             return true;
         } else if (id == R.id.action_privacy) {
-            openUrl("https://todoandroid.42web.io/privacy-policy-megaprocessor"); // Placeholder
+            startActivity(new Intent(this, PrivacyPolicyActivity.class));
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -325,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openInstructionsDocs() {
-        openUrl("https://www.megaprocessor.com/instruction-set/");
+        openUrl("https://www.megaprocessor.com/architecture.html");
     }
 
     private void openWebSimulator() {
