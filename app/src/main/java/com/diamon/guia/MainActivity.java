@@ -671,7 +671,7 @@ public class MainActivity extends AppCompatActivity {
         final String lst = assembler.getListing();
         final String timestamp = String.valueOf(System.currentTimeMillis());
         final String hexName = "megaprocessor_" + timestamp + ".hex";
-        final String lstName = "megaprocessor_" + timestamp + ".list";
+        final String lstName = "megaprocessor_" + timestamp + ".lst";
 
         setStatus("Exportando a Descargas...", false);
         executorService.execute(() -> {

@@ -436,6 +436,8 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic == "JMP" || mnemonic == "JSR") {
             std::string rest; std::getline(ss, rest);
             size = (rest.find('(') != std::string::npos) ? 1 : 3;
+        } else if (mnemonic == "LSR") {
+            size = 2;
         } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             std::string rest; std::getline(ss, rest);
             std::vector<std::string> opList = split(rest, ',');
