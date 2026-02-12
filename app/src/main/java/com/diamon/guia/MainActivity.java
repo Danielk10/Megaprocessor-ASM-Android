@@ -180,7 +180,9 @@ public class MainActivity extends AppCompatActivity {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
             spanned = android.text.Html.fromHtml(aboutText, android.text.Html.FROM_HTML_MODE_LEGACY);
         } else {
-            spanned = android.text.Html.fromHtml(aboutText);
+            @SuppressWarnings("deprecation")
+            android.text.Spanned legacySpanned = android.text.Html.fromHtml(aboutText);
+            spanned = legacySpanned;
         }
 
         AlertDialog dialog = new AlertDialog.Builder(this)

@@ -21,7 +21,7 @@ public class PrivacyPolicyActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
 
-        toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
 
         WebView webView = findViewById(R.id.webViewPrivacy);
         WebSettings webSettings = webView.getSettings();
