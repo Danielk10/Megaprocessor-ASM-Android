@@ -294,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
-                // Guardar contenido de la pestaña que se deja (manteniendo el resaltado)
+                // Guardar contenido de la pestaña que se deja (preservando spans/colores)
                 if (tab.getText() != null && etSource != null) {
                     tabFiles.put(tab.getText().toString(), new SpannableStringBuilder(etSource.getText()));
                 }
@@ -322,15 +322,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void switchTab(String name) {
-        if (name.equals(currentTabName))
+        if (name == null || name.equals(currentTabName))
             return;
+
         currentTabName = name;
         CharSequence content = tabFiles.get(name);
+
+        // Determinar si ya tiene colores para evitar el lag de re-procesado
+        boolean isAlreadyHighlighted = false;
+        if (content instanceof Spannable) {
+            ForegroundColorSpan[] spans = ((Spannable) content).getSpans(0, content.length(),
+                    ForegroundColorSpan.class);
+            if (spans != null && spans.length > 0) {
+                isAlreadyHighlighted = true;
+            }
+        }
+
         isTabSwitching = true;
         etSource.setText(content != null ? content : "");
         isTabSwitching = false;
-        // Forzar resaltado tras el cambio para asegurar que la pestaña tenga color
-        applySyntaxHighlightingToEditor();
+
+        // Solo resaltar si no estaba cacheado o si es texto plano
+        if (!isAlreadyHighlighted && content != null && content.length() > 0) {
+            applySyntaxHighlightingToEditor();
+        }
     }
 
     private void showErrorDialog(String error) {
@@ -427,11 +442,14 @@ public class MainActivity extends AppCompatActivity {
         if (isApplyingSyntaxHighlight || isTabSwitching || etSource == null)
             return;
 
-        final Editable editable = etSource.getText();
-        if (editable == null || editable.length() == 0)
+        final Editable currentEditable = etSource.getText();
+        if (currentEditable == null || currentEditable.length() == 0)
             return;
 
-        final String textStr = editable.toString();
+        final String textStr = currentEditable.toString();
+        final int cursorStart = etSource.getSelectionStart();
+        final int cursorEnd = etSource.getSelectionEnd();
+
         isApplyingSyntaxHighlight = true;
 
         // Colores para el resaltado
@@ -443,30 +461,27 @@ public class MainActivity extends AppCompatActivity {
 
         executorService.execute(() -> {
             try {
-                final List<SpanRange> spans = new ArrayList<>();
-                collectSpans(textStr, PATTERN_MNEMONIC, colorMnemonic, spans);
-                collectSpans(textStr, PATTERN_DIRECTIVE, colorDirective, spans);
-                collectSpans(textStr, PATTERN_LABEL, colorLabel, spans);
-                collectSpans(textStr, PATTERN_NUMBER, colorNumber, spans);
-                collectSpans(textStr, PATTERN_COMMENT, colorComment, spans);
+                // Crear un borrador con los colores aplicados en segundo plano
+                final SpannableStringBuilder ssb = new SpannableStringBuilder(textStr);
+
+                applyColorToBuilder(ssb, PATTERN_MNEMONIC, colorMnemonic);
+                applyColorToBuilder(ssb, PATTERN_DIRECTIVE, colorDirective);
+                applyColorToBuilder(ssb, PATTERN_LABEL, colorLabel);
+                applyColorToBuilder(ssb, PATTERN_NUMBER, colorNumber);
+                applyColorToBuilder(ssb, PATTERN_COMMENT, colorComment);
 
                 mainHandler.post(() -> {
-                    // Verificar si el texto ha cambiado significativamente mientras procesábamos
+                    // Verificar si el texto ha cambiado mientras procesábamos
                     if (etSource == null || !etSource.getText().toString().equals(textStr))
                         return;
 
-                    Editable currentText = etSource.getText();
-                    ForegroundColorSpan[] oldSpans = currentText.getSpans(0, currentText.length(),
-                            ForegroundColorSpan.class);
-                    for (ForegroundColorSpan span : oldSpans)
-                        currentText.removeSpan(span);
-
-                    for (SpanRange sr : spans) {
-                        if (sr.end <= currentText.length()) {
-                            currentText.setSpan(new ForegroundColorSpan(sr.color), sr.start, sr.end,
-                                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        }
+                    isTabSwitching = true; // Bloquear TextWatcher durante el reemplazo atómico
+                    etSource.setText(ssb);
+                    // Restaurar cursor
+                    if (cursorStart >= 0 && cursorEnd >= 0 && cursorEnd <= ssb.length()) {
+                        etSource.setSelection(cursorStart, cursorEnd);
                     }
+                    isTabSwitching = false;
                 });
             } finally {
                 isApplyingSyntaxHighlight = false;
@@ -474,13 +489,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void collectSpans(String text, Pattern pattern, int color, List<SpanRange> out) {
-        Matcher matcher = pattern.matcher(text);
+    private void applyColorToBuilder(SpannableStringBuilder ssb, Pattern pattern, int color) {
+        Matcher matcher = pattern.matcher(ssb.toString());
         while (matcher.find()) {
-            out.add(new SpanRange(matcher.start(), matcher.end(), color));
+            ssb.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }
 
+    // Ya no lo usamos con el nuevo enfoque atómico
+    private void collectSpans(String text, Pattern pattern, int color, List<SpanRange> out) {
+    }
+
+    // Ya no lo usamos con el nuevo enfoque atómico
     private static class SpanRange {
         int start, end, color;
 
