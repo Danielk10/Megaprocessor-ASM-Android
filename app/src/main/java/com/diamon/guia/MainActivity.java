@@ -12,6 +12,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import android.text.SpannableStringBuilder;
 import android.text.Spannable;
 import android.text.Editable;
@@ -167,14 +169,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showAbout() {
-        new AlertDialog.Builder(this)
+        String aboutText = "Megaprocessor ASM Android<br/>" +
+                "Versión 1.0.8<br/><br/>" +
+                "Autor: Daniel Diamon (Danielk10)<br/>" +
+                "<b><a href=\"https://github.com/Danielk10/Megaprocessor-ASM-Android\">Repositorio Oficial</a></b>";
+
+        android.text.Spanned spanned;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            spanned = android.text.Html.fromHtml(aboutText, android.text.Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            spanned = android.text.Html.fromHtml(aboutText);
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.menu_about)
-                .setMessage("Megaprocessor ASM Android\n" +
-                        "Versión 1.0.8\n\n" +
-                        "Autor: Daniel Diamon (Danielk10)\n" +
-                        "Repositorio: https://github.com/Danielk10/Megaprocessor-ASM-Android")
+                .setMessage(spanned)
                 .setPositiveButton("OK", null)
                 .show();
+
+        TextView textView = (TextView) dialog.findViewById(android.R.id.message);
+        if (textView != null) {
+            textView.setMovementMethod(LinkMovementMethod.getInstance());
+        }
     }
 
     private void showLicenses() {
