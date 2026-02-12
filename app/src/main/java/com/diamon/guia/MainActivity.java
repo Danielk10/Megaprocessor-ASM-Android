@@ -65,11 +65,13 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton fabAssemble;
     private TabLayout tabLayout;
 
-    // Gestión de pestañas: Nombre del archivo -> Contenido
-    private final Map<String, String> tabFiles = new LinkedHashMap<>();
+    // Gestión de pestañas: Nombre del archivo -> Contenido (Cacheando Spannables
+    // para rendimiento)
+    private final Map<String, CharSequence> tabFiles = new LinkedHashMap<>();
     private String currentTabName = "";
 
     private boolean isApplyingSyntaxHighlight = false;
+    private boolean isTabSwitching = false;
     private String lastGeneratedHex = "";
     private String lastGeneratedList = "";
 
@@ -123,9 +125,11 @@ public class MainActivity extends AppCompatActivity {
                     tabFiles.put("Megaprocessor_defs.asm", defsAsm);
 
                     // Actualizar el editor solo si la pestaña actual coincide
-                    String currentContent = tabFiles.get(currentTabName);
+                    CharSequence currentContent = tabFiles.get(currentTabName);
                     if (currentContent != null) {
+                        isTabSwitching = true;
                         etSource.setText(currentContent);
+                        isTabSwitching = false;
                     }
                 });
             } catch (IOException e) {
@@ -216,22 +220,23 @@ public class MainActivity extends AppCompatActivity {
         if (currentTabName == null || currentTabName.isEmpty())
             return;
 
-        // Guardar contenido actual antes de ensamblar
-        tabFiles.put(currentTabName, etSource.getText().toString());
+        // Guardar contenido actual con spans antes de ensamblar
+        tabFiles.put(currentTabName, new SpannableStringBuilder(etSource.getText()));
 
-        final String source = tabFiles.get(currentTabName);
-        if (source == null || source.trim().isEmpty()) {
+        final CharSequence sourceSeq = tabFiles.get(currentTabName);
+        if (sourceSeq == null || sourceSeq.toString().trim().isEmpty()) {
             setStatus("El código está vacío", true);
             return;
         }
+        final String source = sourceSeq.toString();
 
         setStatus(getString(R.string.status_assembling), false);
 
         executorService.execute(() -> {
             try {
                 // Registrar todos los archivos abiertos como includes
-                for (Map.Entry<String, String> entry : tabFiles.entrySet()) {
-                    assembler.registerIncludeFile(entry.getKey(), entry.getValue());
+                for (Map.Entry<String, CharSequence> entry : tabFiles.entrySet()) {
+                    assembler.registerIncludeFile(entry.getKey(), entry.getValue().toString());
                 }
 
                 // Asegurar que las defs del sistema estén siempre
@@ -265,9 +270,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
-                // Guardar contenido de la pestaña que se deja
-                if (tab.getText() != null) {
-                    tabFiles.put(tab.getText().toString(), etSource.getText().toString());
+                // Guardar contenido de la pestaña que se deja (manteniendo el resaltado)
+                if (tab.getText() != null && etSource != null) {
+                    tabFiles.put(tab.getText().toString(), new SpannableStringBuilder(etSource.getText()));
                 }
             }
 
@@ -296,8 +301,10 @@ public class MainActivity extends AppCompatActivity {
         if (name.equals(currentTabName))
             return;
         currentTabName = name;
-        String content = tabFiles.get(name);
+        CharSequence content = tabFiles.get(name);
+        isTabSwitching = true;
         etSource.setText(content != null ? content : "");
+        isTabSwitching = false;
     }
 
     private void showErrorDialog(String error) {
@@ -361,7 +368,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                scheduleSyntaxHighlighting();
+                if (!isTabSwitching) {
+                    scheduleSyntaxHighlighting();
+                }
             }
         });
     }
@@ -375,7 +384,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applySyntaxHighlightingToEditor() {
-        if (isApplyingSyntaxHighlight || etSource == null)
+        if (isApplyingSyntaxHighlight || isTabSwitching || etSource == null)
             return;
         Editable text = etSource.getText();
         if (text == null || text.length() == 0)
@@ -387,22 +396,18 @@ public class MainActivity extends AppCompatActivity {
             for (ForegroundColorSpan span : spans)
                 text.removeSpan(span);
 
-            String content = text.toString();
-
-            highlightWithPattern(text, content, PATTERN_MNEMONIC,
-                    ContextCompat.getColor(this, R.color.syntax_mnemonic));
-            highlightWithPattern(text, content, PATTERN_DIRECTIVE,
-                    ContextCompat.getColor(this, R.color.syntax_directive));
-            highlightWithPattern(text, content, PATTERN_LABEL, ContextCompat.getColor(this, R.color.syntax_label));
-            highlightWithPattern(text, content, PATTERN_NUMBER, ContextCompat.getColor(this, R.color.syntax_number));
-            highlightWithPattern(text, content, PATTERN_COMMENT, ContextCompat.getColor(this, R.color.syntax_comment));
+            highlightWithPattern(text, PATTERN_MNEMONIC, ContextCompat.getColor(this, R.color.syntax_mnemonic));
+            highlightWithPattern(text, PATTERN_DIRECTIVE, ContextCompat.getColor(this, R.color.syntax_directive));
+            highlightWithPattern(text, PATTERN_LABEL, ContextCompat.getColor(this, R.color.syntax_label));
+            highlightWithPattern(text, PATTERN_NUMBER, ContextCompat.getColor(this, R.color.syntax_number));
+            highlightWithPattern(text, PATTERN_COMMENT, ContextCompat.getColor(this, R.color.syntax_comment));
         } finally {
             isApplyingSyntaxHighlight = false;
         }
     }
 
-    private void highlightWithPattern(Editable text, String content, Pattern pattern, int color) {
-        Matcher matcher = pattern.matcher(content);
+    private void highlightWithPattern(Editable text, Pattern pattern, int color) {
+        Matcher matcher = pattern.matcher(text);
         while (matcher.find()) {
             text.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(),
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
