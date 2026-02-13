@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar_project_info"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:title="@string/menu_project_info"
+        android:titleTextColor="@color/on_primary" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Megaprocessor: proyecto original"
+                android:textStyle="bold"
+                android:textSize="22sp"
+                android:textColor="@color/on_surface"
+                android:paddingBottom="8dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="El Megaprocessor es una CPU física de 16 bits construida con componentes discretos para fines educativos, diseñada por James Newman. Este proyecto Android implementa un ensamblador compatible para facilitar aprendizaje, experimentación y portabilidad en dispositivos móviles."
+                android:textColor="@color/on_surface"
+                android:lineSpacingExtra="4dp"
+                android:paddingBottom="14dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Introducción"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:paddingBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Ensamblador nativo C++ (2-pass)\n• Generación de HEX/LST\n• Compatibilidad con ejemplos oficiales\n• Editor ASM con resaltado y pestañas"
+                android:textColor="@color/on_surface"
+                android:lineSpacingExtra="3dp"
+                android:paddingBottom="14dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Redención y propósito"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:paddingBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Este proyecto busca acercar el ecosistema del Megaprocessor a más usuarios, preservando fidelidad de ensamblado, mejorando flujo en Android y manteniendo una base abierta para estudiar arquitectura de computadores."
+                android:textColor="@color/on_surface"
+                android:lineSpacingExtra="3dp"
+                android:paddingBottom="14dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Enlaces y documentación"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/linkOfficialSite"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Página oficial del Megaprocessor"
+                android:textColor="@color/accent"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/linkInstructionSet"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Documentación / Instruction Set"
+                android:textColor="@color/accent"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/linkWebSimulator"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Emulador / simulador web"
+                android:textColor="@color/accent"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/linkGitHubProject"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Repositorio de esta app Android"
+                android:textColor="@color/accent"
+                android:paddingBottom="6dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

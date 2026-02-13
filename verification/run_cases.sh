@@ -32,7 +32,12 @@ for asm_file in "$CASES_DIR"/*.asm; do
 
   if "$RUNNER" "$asm_file" "$INCLUDES_DIR" > "$actual_file"; then
     if [[ -f "$expected_file" ]]; then
-      if diff -u "$expected_file" "$actual_file" > /tmp/${case_name}_hex.diff; then
+      expected_norm="/tmp/${case_name}_expected.norm.hex"
+      actual_norm="/tmp/${case_name}_actual.norm.hex"
+      sed 's/\r$//' "$expected_file" > "$expected_norm"
+      sed 's/\r$//' "$actual_file" > "$actual_norm"
+
+      if diff -u "$expected_norm" "$actual_norm" > /tmp/${case_name}_hex.diff; then
         echo "| $case_name | ✅ PASS | Output matches expected |" >> "$RESULTS_FILE"
       else
         echo "| $case_name | ❌ FAIL | Output differs from expected (`diff -u verification/cases/expected/$case_name.hex verification/cases/actual/$case_name.hex`) |" >> "$RESULTS_FILE"

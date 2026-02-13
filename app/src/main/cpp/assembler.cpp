@@ -136,11 +136,11 @@ void Assembler::encodeALU(const std::string& mnemonic, const std::string& op1, c
 
     // Two operand ALU ops
     if (r1 >= 0 && r2 >= 0) {
-        if (mnemonic == "MOVE" && r1 == 0 && r2 == 4) { // move r0,sp
+        if (mnemonic == "MOVE" && r1 == 0 && r2 == 5) { // move r0,sp
             bytes.push_back(0xF0);
             return;
         }
-        if (mnemonic == "MOVE" && r1 == 4 && r2 == 0) { // move sp,r0
+        if (mnemonic == "MOVE" && r1 == 5 && r2 == 0) { // move sp,r0
             bytes.push_back(0xF1);
             return;
         }
@@ -325,46 +325,76 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
                                                        std::vector<std::string>& includeStack) const {
     std::string fullSource;
     for (const auto& line : rawLines) fullSource += line + "\n";
-    
+
     std::string cleaned;
     bool inBlockComment = false;
     for (size_t i = 0; i < fullSource.size(); ++i) {
-        if (!inBlockComment && i + 1 < fullSource.size() && fullSource[i] == '/' && fullSource[i+1] == '*') {
-            inBlockComment = true;
-            i++;
-        } else if (inBlockComment && i + 1 < fullSource.size() && fullSource[i] == '*' && fullSource[i+1] == '/') {
-            inBlockComment = false;
-            i++;
-        } else if (!inBlockComment) {
-            cleaned += fullSource[i];
-        } else if (fullSource[i] == '\n') {
-            cleaned += '\n'; 
-        } else {
-            // Effectively replace commented out chars with spaces to preserve column if needed, 
-            // but for now just skip.
-        }
-    }
-    
-    std::vector<std::string> expanded;
-    std::vector<std::string> linesToProcess = split(cleaned, '\n');
-    
-    for (const auto& rawLine : linesToProcess) {
-        std::string line = rawLine;
-        size_t commentPos = line.find("//");
-        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
-        commentPos = line.find(';');
-        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
-        line = trim(line);
+        char c = fullSource[i];
+        char next = (i + 1 < fullSource.size()) ? fullSource[i + 1] : '\0';
 
-        if (line.empty()) {
-            expanded.push_back("");
+        if (inBlockComment) {
+            if (c == "*"[0] && next == "/"[0]) {
+                inBlockComment = false;
+                ++i;
+            } else if (c == '\n') {
+                cleaned += '\n';
+            }
             continue;
         }
 
-        std::stringstream ss(line);
+        if (c == '/' && next == '/') {
+            // Keep whole line-comment text as-is for listing fidelity.
+            cleaned += c;
+            cleaned += next;
+            ++i;
+            while (i + 1 < fullSource.size() && fullSource[i + 1] != '\n') {
+                cleaned += fullSource[i + 1];
+                ++i;
+            }
+            continue;
+        }
+
+        if (c == '/' && next == '*') {
+            inBlockComment = true;
+            ++i;
+            continue;
+        }
+
+        cleaned += c;
+    }
+
+    std::vector<std::string> expanded;
+    std::vector<std::string> linesToProcess;
+    {
+        std::stringstream ssLines(cleaned);
+        std::string raw;
+        while (std::getline(ssLines, raw)) {
+            linesToProcess.push_back(raw);
+        }
+        if (!cleaned.empty() && cleaned.back() == '\n') {
+            linesToProcess.push_back("");
+        }
+    }
+
+    for (const auto& rawLine : linesToProcess) {
+        std::string parseLine = rawLine;
+        size_t commentPos = parseLine.find("//");
+        if (commentPos != std::string::npos) parseLine = parseLine.substr(0, commentPos);
+        commentPos = parseLine.find(';');
+        if (commentPos != std::string::npos) parseLine = parseLine.substr(0, commentPos);
+        parseLine = trim(parseLine);
+
+        if (parseLine.empty()) {
+            expanded.push_back(rawLine);
+            continue;
+        }
+
+        std::stringstream ss(parseLine);
         std::string mnemonic;
         ss >> mnemonic;
         if (toUpper(mnemonic) == "INCLUDE") {
+            expanded.push_back(rawLine);
+
             std::string includeToken;
             std::getline(ss, includeToken);
             std::string includeName = normalizeIncludeName(includeToken);
@@ -380,7 +410,17 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
             }
 
             includeStack.push_back(includeName);
-            std::vector<std::string> includeLines = split(it->second, '\n');
+            std::vector<std::string> includeLines;
+            {
+                std::stringstream ssInc(it->second);
+                std::string incRaw;
+                while (std::getline(ssInc, incRaw)) {
+                    includeLines.push_back(incRaw);
+                }
+                if (!it->second.empty() && it->second.back() == '\n') {
+                    includeLines.push_back("");
+                }
+            }
             std::string includeError;
             std::vector<std::string> nested = preprocessIncludes(includeLines, includeError, includeStack);
             includeStack.pop_back();
@@ -388,11 +428,14 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
                 error = includeError;
                 return {};
             }
+
             expanded.insert(expanded.end(), nested.begin(), nested.end());
             continue;
         }
+
         expanded.push_back(rawLine);
     }
+
     return expanded;
 }
 
@@ -451,10 +494,10 @@ std::string Assembler::assemble(const std::string& sourceCode) {
             hexOutput << std::setw(2) << (int)b;
             checksum += b;
         }
-        hexOutput << std::setw(2) << ((~checksum + 1) & 0xFF) << "\n";
+        hexOutput << std::setw(2) << ((~checksum + 1) & 0xFF) << "\r\n";
         idx = j;
     }
-    hexOutput << ":00000001FF\n";
+    hexOutput << ":00000001FF\r\n";
 
     for (const auto& inst : instructions) generateListingLine(inst);
     LOGI("Assembly finished successfully.");
@@ -473,12 +516,12 @@ void Assembler::generateListingLine(const Instruction& inst) {
         for(size_t i=0; i<4 && i<inst.bytes.size(); i++) ss << std::setw(2) << std::setfill('0') << (int)inst.bytes[i] << " ";
         for(size_t i=inst.bytes.size(); i<4; i++) ss << "   ";
     }
-    ss << "    " << inst.originalLine << "\n";
+    ss << "    " << inst.originalLine << "\r\n";
     if (inst.bytes.size() > 4) {
         for(size_t i=4; i<inst.bytes.size(); i+=4) {
             ss << "          ";
             for(size_t j=0; j<4 && (i+j)<inst.bytes.size(); j++) ss << std::setw(2) << std::hex << std::setfill('0') << std::uppercase << (int)inst.bytes[i+j] << " ";
-            ss << "\n";
+            ss << "\r\n";
         }
     }
     const_cast<Assembler*>(this)->listingOutput += ss.str();
@@ -495,14 +538,6 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         if (lineNum % 200 == 0) LOGI("Pass 1: Processed %d lines...", lineNum);
         
         std::string line = rawLine;
-
-        // Ultra-deep check for symbols that might be causing issues
-        if (toUpper(rawLine).find("CHECK_KEY") != std::string::npos || 
-            toUpper(rawLine).find("CALC_POINTERS") != std::string::npos) {
-            std::stringstream hexDump;
-            for (unsigned char c : rawLine) hexDump << std::hex << std::setw(2) << std::setfill('0') << (int)c << " ";
-            LOGI("Pass 1: DEBUG L%d: '%s' (Hex: %s)", lineNum, rawLine.c_str(), hexDump.str().c_str());
-        }
 
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
@@ -529,11 +564,13 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             continue;
         }
 
+        std::string labelName;
+        std::string upperLabel;
         size_t colonPos = line.find(':');
         if (colonPos != std::string::npos) {
-            std::string labelName = trim(line.substr(0, colonPos));
+            labelName = trim(line.substr(0, colonPos));
             if (!labelName.empty()) {
-                std::string upperLabel = toUpper(labelName);
+                upperLabel = toUpper(labelName);
                 LOGI("Pass 1: Found label '%s' (normalized: '%s') at address %04X", labelName.c_str(), upperLabel.c_str(), currentAddress);
                 symbolTable[upperLabel] = {labelName, (int32_t)currentAddress, LABEL, true};
             }
@@ -551,7 +588,9 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
 
         if (mnemonic.empty()) continue;
         int size = 1;
-        if (mnemonic == "ORG") {
+        if (mnemonic == "INCLUDE") {
+            continue;
+        } else if (mnemonic == "ORG") {
             std::string valStr; std::getline(ss, valStr);
             int32_t val;
             if (!evaluateExpression(valStr, val)) {
@@ -559,6 +598,9 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
                 return false;
             }
             currentAddress = (uint16_t)val;
+            if (!upperLabel.empty()) {
+                symbolTable[upperLabel] = {labelName, (int32_t)currentAddress, LABEL, true};
+            }
             continue;
         } else if (mnemonic == "DB") {
             std::string args; std::getline(ss, args);
@@ -576,7 +618,7 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             std::string args; std::getline(ss, args);
             std::string t = trim(args);
             if (t.size() >= 2 && ((t.front() == '"' && t.back() == '"') || (t.front() == '\'' && t.back() == '\''))) {
-                size = std::max(1, (int)t.substr(1, t.size() - 2).size());
+                size = std::max(1, (int)t.substr(1, t.size() - 2).size() + 1);
             } else {
                 size = 1;
             }
@@ -702,7 +744,9 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         std::string op1 = opList.size() > 0 ? opList[0] : "";
         std::string op2 = opList.size() > 1 ? opList[1] : "";
 
-        if (mnemonic == "ORG") {
+        if (mnemonic == "INCLUDE") {
+            inst.isDirective = true;
+        } else if (mnemonic == "ORG") {
             int32_t val;
             if (!evaluateExpression(op1, val)) {
                 error = "Invalid ORG expression at line " + std::to_string(lineNum) + ": " + expressionError;
@@ -736,7 +780,7 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             if (t.size() >= 2 && ((t.front() == '"' && t.back() == '"') || (t.front() == '\'' && t.back() == '\''))) {
                 std::string content = t.substr(1, t.size() - 2);
                 for (char c : content) bytes.push_back((uint8_t)c);
-                if (content.empty()) bytes.push_back(0x00);
+                bytes.push_back(0x00);
             } else {
                 bytes.push_back(0x00);
             }
@@ -777,21 +821,34 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             if (op1.find('(') != std::string::npos) {
                 bytes.push_back(mnemonic == "JMP" ? 0xF2 : 0xCE);
             } else {
+                int32_t target = 0;
+                bool hasTarget = false;
+
                 std::string targetSym = toUpper(trim(op1));
                 if (!targetSym.empty() && targetSym.back() == ';') targetSym.pop_back();
                 targetSym = toUpper(trim(targetSym));
 
-                if (targetSym == "CHECK_KEY") {
-                    auto it = symbolTable.find("CHECK_KEY");
-                    if (it == symbolTable.end()) LOGE("Pass 2: CHECK_KEY MISSING from symbolTable at line %d", lineNum);
-                    else LOGI("Pass 2: CHECK_KEY found in table, value=%d, isDefined=%d", it->second.value, it->second.isDefined);
+                bool isSimpleSymbol = !targetSym.empty() &&
+                                      (std::isalpha(static_cast<unsigned char>(targetSym[0])) || targetSym[0] == '_');
+                for (size_t i = 1; isSimpleSymbol && i < targetSym.size(); ++i) {
+                    if (!(std::isalnum(static_cast<unsigned char>(targetSym[i])) || targetSym[i] == '_')) {
+                        isSimpleSymbol = false;
+                    }
                 }
 
-                int32_t target;
-                if (!evaluateExpression(op1, target)) {
+                if (isSimpleSymbol) {
+                    auto it = symbolTable.find(targetSym);
+                    if (it != symbolTable.end() && it->second.isDefined) {
+                        target = it->second.value;
+                        hasTarget = true;
+                    }
+                }
+
+                if (!hasTarget && !evaluateExpression(op1, target)) {
                     error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
                     return false;
                 }
+
                 bytes.push_back(mnemonic == "JMP" ? 0xF3 : 0xCF);
                 bytes.push_back((uint8_t)(target & 0xFF));
                 bytes.push_back((uint8_t)((target >> 8) & 0xFF));
