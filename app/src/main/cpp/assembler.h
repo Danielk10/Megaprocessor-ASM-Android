@@ -55,6 +55,10 @@ private:
 
     void encodeLoadStore(const std::string& mnemonic, const std::string& op1, const std::string& op2,
                          std::vector<uint8_t>& bytes, int lineNum, std::string& error);
+    void encodeALU(const std::string& mnemonic, const std::string& op1, const std::string& op2,
+                   std::vector<uint8_t>& bytes, int lineNum, std::string& error);
+    void encodeBitOp(const std::string& mnemonic, const std::string& op1, const std::string& op2,
+                     std::vector<uint8_t>& bytes, int lineNum, std::string& error);
 
     bool evaluateExpression(const std::string& expr, int32_t& result);
     int32_t parseExpression(const char*& p);

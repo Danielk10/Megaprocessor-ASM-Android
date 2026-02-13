@@ -31,6 +31,10 @@ void Assembler::initOpcodes() {
     opcodeMap["TRAP"] = 0xCD;
 
     // Branches
+    opcodeMap["BUC"] = 0xE0;
+    opcodeMap["BUS"] = 0xE1;
+    opcodeMap["BHI"] = 0xE2;
+    opcodeMap["BLS"] = 0xE3;
     opcodeMap["BCC"] = 0xE4;
     opcodeMap["BCS"] = 0xE5;
     opcodeMap["BNE"] = 0xE6;
@@ -43,10 +47,6 @@ void Assembler::initOpcodes() {
     opcodeMap["BLT"] = 0xED;
     opcodeMap["BGT"] = 0xEE;
     opcodeMap["BLE"] = 0xEF;
-    opcodeMap["BUC"] = 0xF0;
-    opcodeMap["BUS"] = 0xF1;
-    opcodeMap["BHI"] = 0xF2;
-    opcodeMap["BLS"] = 0xF3;
 
     // Misc
     opcodeMap["JMP"] = 0xF3;
@@ -80,22 +80,119 @@ int Assembler::parseRegister(const std::string& token) {
 }
 
 uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
-    if (mnemonic == "MOVE" && ra == 4 && rb == 0) return 0xF1; // MOVE SP,R0
-
-    if (ra < 0 || rb < 0 || ra > 3 || rb > 3) {
-        return 0xFF;
-    }
+    if (ra < 0 || rb < 0 || ra > 3 || rb > 3) return 0xFF;
 
     const uint8_t regCode = static_cast<uint8_t>(rb * 4 + ra);
 
     if (mnemonic == "MOVE") return regCode;
-    if (mnemonic == "AND") return static_cast<uint8_t>(0x10 + regCode);
-    if (mnemonic == "XOR") return static_cast<uint8_t>(0x20 + regCode);
-    if (mnemonic == "OR")  return static_cast<uint8_t>(0x30 + regCode);
-    if (mnemonic == "ADD") return static_cast<uint8_t>(0x40 + regCode);
-    if (mnemonic == "SUB") return static_cast<uint8_t>(0x60 + regCode);
-    if (mnemonic == "CMP") return static_cast<uint8_t>(0x70 + regCode);
+    if (mnemonic == "AND" || mnemonic == "TEST") return 0x10 + regCode;
+    if (mnemonic == "XOR" || mnemonic == "CLR")  return 0x20 + regCode;
+    if (mnemonic == "OR"  || mnemonic == "INV")  return 0x30 + regCode;
+    if (mnemonic == "ADD") return 0x40 + regCode;
+    // Note: SUB and CMP use the same base for registers? 
+    // opcodes.lst: sub r1,r0 -> 61. cmp r1,r0 -> 71.
+    if (mnemonic == "SUB" || mnemonic == "NEG") return 0x60 + regCode;
+    if (mnemonic == "CMP") return 0x70 + regCode;
+    if (mnemonic == "SXT" || mnemonic == "ABS") return 0x00 + regCode; // SXT/ABS use ra=rb in opcodes.lst
+    
     return 0xFF;
+}
+
+void Assembler::encodeALU(const std::string& mnemonic, const std::string& op1, const std::string& op2,
+                           std::vector<uint8_t>& bytes, int lineNum, std::string& error) {
+    int r1 = parseRegister(op1);
+    
+    if (mnemonic == "INC" || mnemonic == "DEC") {
+        if (r1 < 0 || r1 > 3) { error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum); return; }
+        bytes.push_back((mnemonic == "INC" ? 0x54 : 0x5C) + r1);
+        return;
+    }
+    
+    if (mnemonic == "ADDQ") {
+        int r = r1;
+        int32_t val;
+        std::string valStr = op2;
+        if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
+        if (!evaluateExpression(valStr, val)) {
+            error = "Invalid ADDQ value at line " + std::to_string(lineNum) + ": " + expressionError;
+            return;
+        }
+        if (r < 0 || r > 3 || (val != 1 && val != 2 && val != -1 && val != -2)) {
+            error = "ADDQ supports only #1/#2/#-1/#-2 for registers R0-R3 at line " + std::to_string(lineNum);
+            return;
+        }
+        if (val ==  1) bytes.push_back(0x54 + r);
+        else if (val ==  2) bytes.push_back(0x50 + r);
+        else if (val == -1) bytes.push_back(0x5C + r);
+        else if (val == -2) bytes.push_back(0x58 + r);
+        return;
+    }
+
+    int r2 = parseRegister(op2);
+    
+    // Single operand ALU ops
+    if (mnemonic == "SXT" || mnemonic == "ABS" || mnemonic == "INV" || mnemonic == "NEG" || mnemonic == "CLR" || mnemonic == "TEST") {
+        if (r1 < 0 || r1 > 3) { error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum); return; }
+        bytes.push_back(getALUOpcode(mnemonic, r1, r1));
+        return;
+    }
+
+    // Two operand ALU ops
+    if (r1 >= 0 && r2 >= 0) {
+        if (mnemonic == "MOVE" && r1 == 4 && r2 == 0) { // move sp,r0
+            bytes.push_back(0xF1);
+            return;
+        }
+        if (mnemonic == "MOVE" && r1 == 0 && r2 == 4) { // move r0,sp
+            bytes.push_back(0xF0);
+            return;
+        }
+        
+        uint8_t code = getALUOpcode(mnemonic, r1, r2);
+        if (code != 0xFF) {
+            bytes.push_back(code);
+        } else {
+            error = "Invalid operands or mnemonic " + mnemonic + " at line " + std::to_string(lineNum);
+        }
+    } else {
+        error = "Invalid register(s) for " + mnemonic + " at line " + std::to_string(lineNum);
+    }
+}
+
+void Assembler::encodeBitOp(const std::string& mnemonic, const std::string& op1, const std::string& op2,
+                             std::vector<uint8_t>& bytes, int lineNum, std::string& error) {
+    int r1 = parseRegister(op1);
+    if (r1 < 0 || r1 > 3) {
+        error = "Invalid destination register for bit operation at line " + std::to_string(lineNum);
+        return;
+    }
+
+    uint8_t opType = 0; // BTST
+    if (mnemonic == "BCHG") opType = 1;
+    else if (mnemonic == "BCLR") opType = 2;
+    else if (mnemonic == "BSET") opType = 3;
+
+    int r2 = parseRegister(op2);
+    uint8_t opByte = (opType << 6);
+    
+    if (r2 >= 0) {
+        // Register mode
+        opByte |= 0x20; // Bit 5
+        opByte |= (r2 & 0x1F); // Actually only 0-5 likely valid
+    } else {
+        // Immediate mode
+        std::string valStr = op2;
+        if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
+        int32_t bitNum;
+        if (!evaluateExpression(valStr, bitNum)) {
+            error = "Invalid bit number at line " + std::to_string(lineNum) + ": " + expressionError;
+            return;
+        }
+        opByte |= (bitNum & 0x1F);
+    }
+
+    bytes.push_back(0xDC + r1);
+    bytes.push_back(opByte);
 }
 
 bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
@@ -448,7 +545,9 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             std::string rest; std::getline(ss, rest);
             size = (rest.find('(') != std::string::npos) ? 1 : 3;
         } else if (mnemonic == "LSR" || mnemonic == "LSL" || mnemonic == "ASL" || mnemonic == "ASR" ||
-                   mnemonic == "ROL" || mnemonic == "ROR" || mnemonic == "ROXL" || mnemonic == "ROXR") {
+                   mnemonic == "ROL" || mnemonic == "ROR" || mnemonic == "ROXL" || mnemonic == "ROXR" ||
+                   mnemonic == "BTST" || mnemonic == "BCHG" || mnemonic == "BCLR" || mnemonic == "BSET" ||
+                   mnemonic == "ANDI" || mnemonic == "ORI" || mnemonic == "ADDI") {
             size = 2;
         } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             std::string rest; std::getline(ss, rest);
@@ -475,7 +574,9 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         for (auto it = pendingEQUs.begin(); it != pendingEQUs.end(); ) {
             int32_t val;
             if (evaluateExpression(it->second.first, val)) {
-                symbolTable[it->first] = {val, true};
+                Symbol& sym = symbolTable[it->first];
+                sym.value = val;
+                sym.isDefined = true;
                 it = pendingEQUs.erase(it);
                 progress = true;
             } else {
@@ -632,13 +733,13 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic.rfind("LD.", 0) == 0 || mnemonic.rfind("ST.", 0) == 0) {
             encodeLoadStore(mnemonic, op1, op2, bytes, lineNum, error);
             if (!error.empty()) return false;
-        } else if (mnemonic == "MOVE" || mnemonic == "AND" || mnemonic == "XOR" || mnemonic == "OR" || mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "CMP") {
-            int r1 = parseRegister(op1), r2 = parseRegister(op2);
-            if (r1 >= 0 && r2 >= 0) bytes.push_back(getALUOpcode(mnemonic, r1, r2));
-            else {
-                error = "Invalid register at line " + std::to_string(lineNum);
-                return false;
-            }
+        } else if (mnemonic == "MOVE" || mnemonic == "AND" || mnemonic == "XOR" || mnemonic == "OR" || 
+                   mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "CMP" || mnemonic == "TEST" ||
+                   mnemonic == "SXT" || mnemonic == "ABS" || mnemonic == "INV" || mnemonic == "NEG" ||
+                   mnemonic == "CLR" || mnemonic == "INC" || mnemonic == "DEC" || mnemonic == "ADDQ") {
+             encodeALU(mnemonic, op1, op2, bytes, lineNum, error);
+             if (!error.empty()) return false;
+
         } else if (mnemonic == "PUSH" || mnemonic == "POP") {
             int r = parseRegister(op1);
             if (r < 0) {
@@ -764,6 +865,20 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             bytes.push_back(0xD8 + r);
             bytes.push_back(opByte);
 
+        } else if (mnemonic == "BTST" || mnemonic == "BCHG" || mnemonic == "BCLR" || mnemonic == "BSET") {
+            encodeBitOp(mnemonic, op1, op2, bytes, lineNum, error);
+            if (!error.empty()) return false;
+        } else if (mnemonic == "ANDI" || mnemonic == "ORI" || mnemonic == "ADDI") {
+            bytes.push_back(opcodeMap[mnemonic]);
+            std::string valStr = op2;
+            if (valStr.empty()) valStr = op1; // Fallback if only one operand? No, normally ps,#val
+            if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
+            int32_t val;
+            if (!evaluateExpression(valStr, val)) {
+                error = "Invalid immediate for " + mnemonic + " at line " + std::to_string(lineNum) + ": " + expressionError;
+                return false;
+            }
+            bytes.push_back((uint8_t)(val & 0xFF));
         } else if (opcodeMap.count(mnemonic)) {
             bytes.push_back(opcodeMap[mnemonic]);
         } else {
