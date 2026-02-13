@@ -261,6 +261,7 @@ int32_t Assembler::parseFactor(const char*& p) {
     if (*p == '(') {
         p++;
         int32_t x = parseExpression(p);
+        while (isspace(*p)) p++;
         if (*p != ')') throw std::runtime_error("Missing ')' in expression");
         p++;
         return x;
@@ -301,14 +302,41 @@ int32_t Assembler::parseFactor(const char*& p) {
             return it->second.value;
         }
         std::string msg = "Undefined symbol: " + symName;
-        if (symbolTable.size() < 20) { // Small table, list symbols
-             msg += " (Defined: ";
-             for (auto const& [k, v] : symbolTable) msg += k + " ";
-             msg += ")";
+        // Collect a few symbols for diagnosis if not too many
+        msg += " (Symbols defined: ";
+        int count = 0;
+        for (auto const& [k, v] : symbolTable) {
+            if (v.isDefined) {
+                msg += k + " ";
+                if (++count > 50) { msg += "..."; break; }
+            }
         }
+        msg += ")";
         throw std::runtime_error(msg);
     }
     throw std::runtime_error("Unexpected character in expression");
+}
+
+bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
+    std::string cleanExpr = trim(expr);
+    // Remove trailing semicolon if present
+    if (!cleanExpr.empty() && cleanExpr.back() == ';') {
+        cleanExpr.pop_back();
+        cleanExpr = trim(cleanExpr);
+    }
+    expressionError.clear();
+    if (cleanExpr.empty()) {
+        expressionError = "Empty expression";
+        return false;
+    }
+    const char* p = cleanExpr.c_str();
+    try {
+        result = parseExpression(p);
+        return true;
+    } catch (const std::exception& e) {
+        expressionError = e.what();
+        return false;
+    }
 }
 
 std::string Assembler::normalizeIncludeName(const std::string& includeToken) const {
@@ -323,12 +351,8 @@ std::string Assembler::normalizeIncludeName(const std::string& includeToken) con
 
 std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::string>& rawLines, std::string& error,
                                                        std::vector<std::string>& includeStack) const {
-    std::vector<std::string> lines = rawLines;
-    
-    // First, handle block comments /* ... */ across all lines in this file/buffer.
-    // We MUST preserve newlines to keep line numbers accurate.
     std::string fullSource;
-    for (const auto& line : lines) fullSource += line + "\n";
+    for (const auto& line : rawLines) fullSource += line + "\n";
     
     std::string cleaned;
     bool inBlockComment = false;
@@ -342,7 +366,10 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         } else if (!inBlockComment) {
             cleaned += fullSource[i];
         } else if (fullSource[i] == '\n') {
-            cleaned += '\n'; // Preserve newline character even inside block comments
+            cleaned += '\n'; 
+        } else {
+            // Effectively replace commented out chars with spaces to preserve column if needed, 
+            // but for now just skip.
         }
     }
     
@@ -358,7 +385,7 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         line = trim(line);
 
         if (line.empty()) {
-            expanded.push_back(rawLine); // Preserve empty lines for accurate line numbering
+            expanded.push_back("");
             continue;
         }
 
@@ -410,7 +437,11 @@ std::string Assembler::assemble(const std::string& sourceCode) {
     std::vector<std::string> expandedLines = preprocessIncludes(lines, error, includeStack);
     if (!error.empty()) return "ERROR: " + error;
 
+    LOGI("Expanded source has %zu lines", expandedLines.size());
+
     if (!pass1(expandedLines, error)) return "ERROR: " + error;
+    LOGI("Pass 1 completed. Symbols defined: %zu", symbolTable.size());
+    
     if (!pass2(expandedLines, error)) return "ERROR: " + error;
 
     std::vector<std::pair<uint16_t, uint8_t>> image;
