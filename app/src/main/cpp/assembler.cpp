@@ -300,7 +300,13 @@ int32_t Assembler::parseFactor(const char*& p) {
         if (it != symbolTable.end() && it->second.isDefined) {
             return it->second.value;
         }
-        throw std::runtime_error("Undefined symbol: " + symName);
+        std::string msg = "Undefined symbol: " + symName;
+        if (symbolTable.size() < 20) { // Small table, list symbols
+             msg += " (Defined: ";
+             for (auto const& [k, v] : symbolTable) msg += k + " ";
+             msg += ")";
+        }
+        throw std::runtime_error(msg);
     }
     throw std::runtime_error("Unexpected character in expression");
 }
@@ -319,7 +325,8 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
                                                        std::vector<std::string>& includeStack) const {
     std::vector<std::string> lines = rawLines;
     
-    // First, handle block comments /* ... */ across all lines in this file/buffer
+    // First, handle block comments /* ... */ across all lines in this file/buffer.
+    // We MUST preserve newlines to keep line numbers accurate.
     std::string fullSource;
     for (const auto& line : lines) fullSource += line + "\n";
     
@@ -334,6 +341,8 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
             i++;
         } else if (!inBlockComment) {
             cleaned += fullSource[i];
+        } else if (fullSource[i] == '\n') {
+            cleaned += '\n'; // Preserve newline character even inside block comments
         }
     }
     
@@ -348,7 +357,10 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         line = trim(line);
 
-        if (line.empty() && rawLine.empty()) continue; // Skip empty lines after stripping
+        if (line.empty()) {
+            expanded.push_back(rawLine); // Preserve empty lines for accurate line numbering
+            continue;
+        }
 
         std::stringstream ss(line);
         std::string mnemonic;
@@ -768,69 +780,21 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic == "PUSH" || mnemonic == "POP") {
             int r = parseRegister(op1);
             if (r < 0) {
-                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
-                return false;
+                // Check if it's PS or another special register
+                std::string rStr = toUpper(trim(op1));
+                if (rStr == "PS") r = 5;
+                else {
+                    error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
+                    return false;
+                }
             }
             bytes.push_back((mnemonic == "POP" ? 0xC0 : 0xC8) + r);
-        } else if (mnemonic == "SXT" || mnemonic == "ABS") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back(getALUOpcode("AND", r, r));
-        } else if (mnemonic == "INV") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in INV at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back(getALUOpcode("OR", r, r));
-        } else if (mnemonic == "NEG") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in NEG at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back(getALUOpcode("SUB", r, r));
-        } else if (mnemonic == "CLR") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in CLR at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back(getALUOpcode("XOR", r, r));
-        } else if (mnemonic == "INC" || mnemonic == "DEC") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back((mnemonic == "INC" ? 0x54 : 0x5C) + r);
-        } else if (mnemonic == "ADDQ") {
-            int r = parseRegister(op1);
-            int32_t val;
-            std::string valStr = op2;
-            if (!valStr.empty() && valStr[0] == '#') valStr = valStr.substr(1);
-            if (!evaluateExpression(valStr, val)) {
-                error = "Invalid ADDQ value at line " + std::to_string(lineNum) + ": " + expressionError;
-                return false;
-            }
-            if (r < 0 || (val != 1 && val != 2 && val != -1 && val != -2)) {
-                error = "ADDQ supports only #1/#2/#-1/#-2 at line " + std::to_string(lineNum);
-                return false;
-            }
-            if (val == 1) bytes.push_back(0x54 + r);
-            else if (val == 2) bytes.push_back(0x50 + r);
-            else if (val == -1) bytes.push_back(0x5C + r);
-            else bytes.push_back(0x58 + r);
-        } else if (mnemonic == "TEST") {
-            int r = parseRegister(op1);
-            if (r < 0) {
-                error = "Invalid register in TEST at line " + std::to_string(lineNum);
-                return false;
-            }
-            bytes.push_back(getALUOpcode("AND", r, r));
+        } else if (mnemonic == "RET") {
+            bytes.push_back(0xCB);
+        } else if (mnemonic == "RETI") {
+            bytes.push_back(0xCC);
+        } else if (mnemonic == "TRAP") {
+            bytes.push_back(0xCD);
         } else if (mnemonic == "ASL" || mnemonic == "ASR" || mnemonic == "LSL" || mnemonic == "LSR" ||
                    mnemonic == "ROL" || mnemonic == "ROR" || mnemonic == "ROXL" || mnemonic == "ROXR") {
             int r = parseRegister(op1);
