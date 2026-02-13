@@ -195,34 +195,7 @@ void Assembler::encodeBitOp(const std::string& mnemonic, const std::string& op1,
     bytes.push_back(opByte);
 }
 
-bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
-    std::string cleanExpr = trim(expr);
-    expressionError.clear();
-    if (cleanExpr.empty()) {
-        result = 0;
-        return true;
-    }
-    if (cleanExpr.back() == ';') cleanExpr.pop_back();
-    cleanExpr = trim(cleanExpr);
 
-    try {
-        std::string noSpaces;
-        for (char c : cleanExpr) if (!isspace(c)) noSpaces += c;
-        const char* p = noSpaces.c_str();
-        result = parseExpression(p);
-        if (*p != '\0') {
-            expressionError = "Unexpected token in expression: " + std::string(p);
-            return false;
-        }
-        return true;
-    } catch (const std::exception& ex) {
-        expressionError = ex.what();
-        return false;
-    } catch (...) {
-        expressionError = "Unknown expression evaluation error";
-        return false;
-    }
-}
 
 int32_t Assembler::parseExpression(const char*& p) {
     int32_t x = parseTerm(p);
