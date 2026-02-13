@@ -328,12 +328,12 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
 
     std::string cleaned;
     bool inBlockComment = false;
+    bool inLineComment = false;
     for (size_t i = 0; i < fullSource.size(); ++i) {
         char c = fullSource[i];
         char next = (i + 1 < fullSource.size()) ? fullSource[i + 1] : '\0';
 
-        if (inBlockComment) {
-            if (c == "*"[0] && next == "/"[0]) {
+
                 inBlockComment = false;
                 ++i;
             } else if (c == '\n') {
@@ -343,14 +343,7 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         }
 
         if (c == '/' && next == '/') {
-            // Keep whole line-comment text as-is for listing fidelity.
-            cleaned += c;
-            cleaned += next;
-            ++i;
-            while (i + 1 < fullSource.size() && fullSource[i + 1] != '\n') {
-                cleaned += fullSource[i + 1];
-                ++i;
-            }
+
             continue;
         }
 
@@ -834,15 +827,6 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                     if (!(std::isalnum(static_cast<unsigned char>(targetSym[i])) || targetSym[i] == '_')) {
                         isSimpleSymbol = false;
                     }
-                }
-
-                if (isSimpleSymbol) {
-                    auto it = symbolTable.find(targetSym);
-                    if (it != symbolTable.end() && it->second.isDefined) {
-                        target = it->second.value;
-                        hasTarget = true;
-                    }
-                }
 
                 if (!hasTarget && !evaluateExpression(op1, target)) {
                     error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
