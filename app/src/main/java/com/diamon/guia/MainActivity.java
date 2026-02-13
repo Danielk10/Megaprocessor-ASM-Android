@@ -197,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showAbout() {
         String aboutText = "<b>Megaprocessor ASM Android</b><br/>" +
-                "Versión 1.0.8<br/><br/>" +
+                "Versión 1.1.8<br/><br/>" +
                 "Aplicación Android con núcleo nativo C++ para ensamblar programas del Megaprocessor, " +
                 "generar Intel HEX y listados LST, y verificar compatibilidad con referencias oficiales.<br/><br/>" +
                 "Este proyecto facilita aprendizaje de arquitectura de computadores y uso práctico " +
