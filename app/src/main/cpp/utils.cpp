@@ -12,8 +12,14 @@ std::string trim(const std::string& str) {
 }
 
 std::string toUpper(const std::string& str) {
-    std::string result = str;
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c){ return std::toupper(c); });
+    std::string result;
+    result.reserve(str.size());
+    for (unsigned char c : str) {
+        if (c >= 'a' && c <= 'z') result += (char)(c - 'a' + 'A');
+        else if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.' || c == '#' || c == '(' || c == ')' || c == '+' || c == '-') 
+            result += (char)c;
+        // Skip non-printable or suspicious chars for symbols
+    }
     return result;
 }
 

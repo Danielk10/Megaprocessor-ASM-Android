@@ -520,7 +520,11 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         if (colonPos != std::string::npos) {
             std::string labelName = trim(line.substr(0, colonPos));
             if (!labelName.empty()) {
-                symbolTable[toUpper(labelName)] = {labelName, (int32_t)currentAddress, LABEL, true};
+                std::string upperLabel = toUpper(labelName);
+                if (upperLabel == "CHECK_KEY") {
+                    LOGI("Pass 1: REGISTERING CHECK_KEY at %04X", currentAddress);
+                }
+                symbolTable[upperLabel] = {labelName, (int32_t)currentAddress, LABEL, true};
             }
             line = trim(line.substr(colonPos + 1));
         }
@@ -762,6 +766,16 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             if (op1.find('(') != std::string::npos) {
                 bytes.push_back(mnemonic == "JMP" ? 0xF2 : 0xCE);
             } else {
+                std::string targetSym = toUpper(trim(op1));
+                if (!targetSym.empty() && targetSym.back() == ';') targetSym.pop_back();
+                targetSym = toUpper(trim(targetSym));
+
+                if (targetSym == "CHECK_KEY") {
+                    auto it = symbolTable.find("CHECK_KEY");
+                    if (it == symbolTable.end()) LOGE("Pass 2: CHECK_KEY MISSING from symbolTable at line %d", lineNum);
+                    else LOGI("Pass 2: CHECK_KEY found in table, value=%d, isDefined=%d", it->second.value, it->second.isDefined);
+                }
+
                 int32_t target;
                 if (!evaluateExpression(op1, target)) {
                     error = "Invalid jump target at line " + std::to_string(lineNum) + ": " + expressionError;
