@@ -680,7 +680,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openInstructionsDocs() {
-        openUrl("https://www.megaprocessor.com/simulator.html");
+        openUrl("https://www.megaprocessor.com/simulator.pdf");
     }
 
     private void openWebSimulator() {

@@ -22,8 +22,8 @@ public class ProjectInfoActivity extends AppCompatActivity {
         }
 
         setupLink(R.id.linkOfficialSite, "https://www.megaprocessor.com/");
-        setupLink(R.id.linkInstructionSet, "https://www.megaprocessor.com/instruction_set.html");
-        setupLink(R.id.linkWebSimulator, "https://www.megaprocessor.com/simulator.html");
+        setupLink(R.id.linkInstructionSet, "https://www.megaprocessor.com/instruction_set.pdf");
+        setupLink(R.id.linkWebSimulator, "https://www.megaprocessor.com/simulator.pdf");
         setupLink(R.id.linkGitHubProject, "https://github.com/Danielk10/Megaprocessor-ASM-Android");
     }
 
