@@ -19,7 +19,7 @@
     <string name="title_generated_hex">Código HEX Generado</string>
     <string name="btn_close">Cerrar</string>
     <string name="pref_example_file">tic_tac_toe_2.asm</string>
-    <string name="license_content">Megaprocessor ASM Android es un proyecto open source de ensamblador para el Megaprocessor. El proyecto se distribuye bajo licencia Apache 2.0. Megaprocessor y su diseño de hardware pertenecen a James Newman. Este proyecto no sustituye ni modifica los derechos del proyecto original.</string>
+    <string name="license_content">Este proyecto Android de ensamblador para Megaprocessor es open source y se distribuye bajo licencia Apache 2.0. Megaprocessor y su diseño original pertenecen a James Newman; esta app no sustituye ni modifica los derechos del proyecto original.</string>
     <string name="tab_new">Nueva Pestaña</string>
     <string name="tab_main">tic_tac_toe_2.asm</string>
     <string name="btn_export_popup">Exportar a Descargas</string>
