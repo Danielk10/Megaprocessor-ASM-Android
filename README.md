@@ -202,7 +202,7 @@ Megaprocessor-ASM-Android/
 ├── tools/
 │   └── assembler-cli/           # Ejecutable CLI puro C++
 ├── scripts/                     # Automatización (CI, SDK Setup, Verificación)
-├── verification/                # Casos de test y resultados (5/5 PASS)
+├── verification/                # Casos de test y resultados (suite de verificación)
 ├── docs/                        # Documentación adicional
 ├── .github/workflows/           # CI/CD (GitHub Actions)
 ├── tic_tac_toe_2.asm/.hex/.lst # Programas de referencia
