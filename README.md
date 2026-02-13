@@ -101,7 +101,7 @@ gradlew.bat assembleDebug
 
 ### Verificación de Equivalencia HEX (CI local)
 
-El script `scripts/verify_hex_equivalence.sh` ensambla `tic_tac_toe_2.asm` usando un CLI Linux (compilado en tiempo de ejecución desde el core C++), normaliza los HEX y compara el resultado generado contra `app/src/main/assets/example.hex` (que debe ser idéntico al `tic_tac_toe_2.hex` de referencia en raíz).
+El script `scripts/verify_hex_equivalence.sh` ensambla `tic_tac_toe_2.asm` usando un CLI Linux (compilado en tiempo de ejecución desde el core C++), normaliza los HEX y compara el resultado generado contra `app/src/main/assets/tic_tac_toe_2.hex` (que debe ser idéntico al `tic_tac_toe_2.hex` de referencia en raíz).
 
 Comportamiento:
 - Devuelve `PASS` cuando los HEX son idénticos.
@@ -159,7 +159,7 @@ El ejecutable carga automáticamente `Megaprocessor_defs.asm` si está disponibl
 Notas sobre exportación en Android:
 - En Android 10+ (API 29+) se usa `MediaStore` para guardar en **Descargas** sin permisos de almacenamiento legados.
 - En Android 6–9 (API 23–28), la app solicita permiso de escritura al exportar por primera vez.
-- Los archivos se guardan con nombres tipo `megaprocessor_<timestamp>.hex` y `megaprocessor_<timestamp>.lst` para evitar sobreescrituras.
+- Los archivos se guardan con nombres tipo `<nombre_pestaña>.hex` y `<nombre_pestaña>.lst` para evitar sobreescrituras.
 
 ### Ejemplo de Código Assembly
 
@@ -196,7 +196,7 @@ Megaprocessor-ASM-Android/
 │   │   │   ├── native-lib.cpp   # JNI Bridge
 │   │   │   └── utils.cpp/.h     # Helpers
 │   │   ├── java/.../            # NativeAssembler.java y MainActivity.java
-│   │   ├── assets/              # Megaprocessor_defs.asm, example.asm/hex
+│   │   ├── assets/              # Megaprocessor_defs.asm, tic_tac_toe_2.asm/hex
 │   │   └── res/                 # Layouts UI Android
 │   └── build.gradle             # Configuración NDK/Gradle
 ├── tools/

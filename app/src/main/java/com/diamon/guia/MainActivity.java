@@ -71,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvStatus, tvLineNumbers;
     private ExecutorService executorService;
     private Handler mainHandler;
-    private FloatingActionButton fabAssemble, fabClear;
+    private FloatingActionButton fabAssemble, fabClear, fabWebSimulator, fabOfficialSite;
     private TabLayout tabLayout;
 
     // Gestión de pestañas: Nombre del archivo -> Contenido (Cacheando Spannables
@@ -121,10 +121,14 @@ public class MainActivity extends AppCompatActivity {
         tvLineNumbers = findViewById(R.id.tvLineNumbers);
         fabAssemble = findViewById(R.id.fabAssemble);
         fabClear = findViewById(R.id.fabClear);
+        fabWebSimulator = findViewById(R.id.fabWebSimulator);
+        fabOfficialSite = findViewById(R.id.fabOfficialSite);
         tabLayout = findViewById(R.id.tabLayout);
 
         fabAssemble.setOnClickListener(v -> assembleCode());
         fabClear.setOnClickListener(v -> showClearConfirmationDialog());
+        fabWebSimulator.setOnClickListener(v -> openWebSimulator());
+        fabOfficialSite.setOnClickListener(v -> openOfficialSite());
 
         setupTabLayout();
         setupEditorSyntaxHighlighting();
@@ -137,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
         // tic_tac_toe_2.asm - Ejemplo del compilador oficial del Megaprocessor
         executorService.execute(() -> {
             try {
-                final String exampleAsm = readAssetText("example.asm");
+                final String exampleAsm = readAssetText("tic_tac_toe_2.asm");
                 final String defsAsm = readAssetText("Megaprocessor_defs.asm");
 
                 mainHandler.post(() -> {
@@ -167,10 +171,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.action_save) {
-            exportFiles();
-            return true;
-        } else if (id == R.id.action_new_tab) {
+        if (id == R.id.action_new_tab) {
             showNewTabDialog();
             return true;
         } else if (id == R.id.action_open) {
@@ -636,10 +637,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openInstructionsDocs() {
-        openUrl("https://www.megaprocessor.com/architecture.html");
+        openUrl("https://www.megaprocessor.com/simulator.html");
     }
 
     private void openWebSimulator() {
+        openInstructionsDocs();
+    }
+
+    private void openOfficialSite() {
         openUrl("https://www.megaprocessor.com/");
     }
 
@@ -669,9 +674,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final String lst = assembler.getListing();
-        final String timestamp = String.valueOf(System.currentTimeMillis());
-        final String hexName = "megaprocessor_" + timestamp + ".hex";
-        final String lstName = "megaprocessor_" + timestamp + ".lst";
+        final String baseName = getCurrentTabBaseName();
+        final String hexName = baseName + ".hex";
+        final String lstName = baseName + ".lst";
 
         setStatus("Exportando a Descargas...", false);
         executorService.execute(() -> {
@@ -680,6 +685,27 @@ public class MainActivity extends AppCompatActivity {
             mainHandler.post(() -> setStatus(hexSaved && lstSaved ? "Guardado en Descargas" : "Error al guardar",
                     !(hexSaved && lstSaved)));
         });
+    }
+
+    private String getCurrentTabBaseName() {
+        String tabName = currentTabName;
+        if (tabName == null || tabName.trim().isEmpty()) {
+            tabName = "programa";
+        }
+        tabName = tabName.trim();
+        int dot = tabName.lastIndexOf('.');
+        if (dot > 0) {
+            tabName = tabName.substring(0, dot);
+        }
+        return sanitizeFileName(tabName);
+    }
+
+    private String sanitizeFileName(String input) {
+        String cleaned = input.replaceAll("[\\/:*?\"<>|]", "_").trim();
+        if (cleaned.isEmpty()) {
+            return "programa";
+        }
+        return cleaned;
     }
 
     private boolean saveFileToDownloads(String fileName, String content) {
