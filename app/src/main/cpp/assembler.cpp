@@ -517,14 +517,6 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         
         std::string line = rawLine;
 
-        // Ultra-deep check for symbols that might be causing issues
-        if (toUpper(rawLine).find("CHECK_KEY") != std::string::npos || 
-            toUpper(rawLine).find("CALC_POINTERS") != std::string::npos) {
-            std::stringstream hexDump;
-            for (unsigned char c : rawLine) hexDump << std::hex << std::setw(2) << std::setfill('0') << (int)c << " ";
-            LOGI("Pass 1: DEBUG L%d: '%s' (Hex: %s)", lineNum, rawLine.c_str(), hexDump.str().c_str());
-        }
-
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         commentPos = line.find(';');
