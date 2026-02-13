@@ -4,7 +4,7 @@
     <string name="btn_export">Exportar</string>
     <string name="btn_share">Compartir</string>
     <string name="btn_docs">Instrucciones</string>
-    <string name="btn_web_sim">Simulador Web</string>
+    <string name="btn_web_sim">Simulador</string>
     <string name="btn_official_site">Sitio oficial</string>
     <string name="btn_copy_hex">Copiar HEX</string>
     <string name="status_assembling">Ensamblando...</string>
