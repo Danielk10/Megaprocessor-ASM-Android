@@ -291,20 +291,22 @@ int32_t Assembler::parseFactor(const char*& p) {
 }
 
 bool Assembler::evaluateExpression(const std::string& expr, int32_t& result) {
-    std::string cleanExpr = trim(expr);
-    // Remove trailing semicolon if present
-    if (!cleanExpr.empty() && cleanExpr.back() == ';') {
-        cleanExpr.pop_back();
-        cleanExpr = trim(cleanExpr);
-    }
-    expressionError.clear();
+    std::string cleanExpr;
+    for (char c : expr) if (!isspace(c)) cleanExpr += c;
+    
     if (cleanExpr.empty()) {
         expressionError = "Empty expression";
         return false;
     }
+    if (cleanExpr.back() == ';') cleanExpr.pop_back();
+
     const char* p = cleanExpr.c_str();
     try {
         result = parseExpression(p);
+        if (*p != '\0') {
+             // In case there's something left after parsing
+             // expressionError = "Unexpected characters"; 
+        }
         return true;
     } catch (const std::exception& e) {
         expressionError = e.what();
@@ -411,7 +413,10 @@ std::string Assembler::assemble(const std::string& sourceCode) {
     if (!error.empty()) return "ERROR: " + error;
 
     LOGI("Expanded source has %zu lines", expandedLines.size());
-
+    if (expandedLines.size() > 5) {
+        LOGI("First 3 expanded lines: '%s', '%s', '%s'", expandedLines[0].c_str(), expandedLines[1].c_str(), expandedLines[2].c_str());
+    }
+    
     if (!pass1(expandedLines, error)) return "ERROR: " + error;
     LOGI("Pass 1 completed. Symbols defined: %zu", symbolTable.size());
     
@@ -490,7 +495,17 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
 
     for (const auto& rawLine : lines) {
         lineNum++;
+        if (lineNum % 500 == 0) LOGI("Pass 1: Processed %d lines...", lineNum);
+        
         std::string line = rawLine;
+
+        // Debug: specific check for check_key
+        if (toUpper(rawLine).find("CHECK_KEY") != std::string::npos) {
+            std::stringstream hexDump;
+            for (unsigned char c : rawLine) hexDump << std::hex << std::setw(2) << std::setfill('0') << (int)c << " ";
+            LOGI("Pass 1: DEBUG line %d: '%s' (Hex: %s)", lineNum, rawLine.c_str(), hexDump.str().c_str());
+        }
+
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         commentPos = line.find(';');
@@ -521,9 +536,7 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
             std::string labelName = trim(line.substr(0, colonPos));
             if (!labelName.empty()) {
                 std::string upperLabel = toUpper(labelName);
-                if (upperLabel == "CHECK_KEY") {
-                    LOGI("Pass 1: REGISTERING CHECK_KEY at %04X", currentAddress);
-                }
+                LOGI("Pass 1: Found label '%s' (normalized: '%s') at address %04X", labelName.c_str(), upperLabel.c_str(), currentAddress);
                 symbolTable[upperLabel] = {labelName, (int32_t)currentAddress, LABEL, true};
             }
             line = trim(line.substr(colonPos + 1));
