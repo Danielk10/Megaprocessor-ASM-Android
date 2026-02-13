@@ -28,6 +28,6 @@ public class PrivacyPolicyActivity extends AppCompatActivity {
         webSettings.setJavaScriptEnabled(true);
 
         webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("https://todoandroid.42web.io/privacy-policy-megaprocessor");
+        webView.loadUrl("https://politicasdemegaprocessorasmandroid.blogspot.com/2026/02/politicas-de-privacidad.html");
     }
 }
