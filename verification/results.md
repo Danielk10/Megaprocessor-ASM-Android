@@ -7,6 +7,7 @@
 | directives | ✅ PASS | Output matches expected |
 | jumps | ✅ PASS | Output matches expected |
 | ldst | ✅ PASS | Output matches expected |
+| opcodes | ✅ PASS | Output matches expected |
 
 ## Implementation gaps detected
 

@@ -7,6 +7,8 @@ import androidx.core.content.ContextCompat;
 import android.os.Bundle;
 import android.Manifest;
 import android.content.ContentValues;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -71,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvStatus, tvLineNumbers;
     private ExecutorService executorService;
     private Handler mainHandler;
-    private FloatingActionButton fabAssemble, fabClear;
+    private FloatingActionButton fabAssemble, fabClear, fabWebSimulator, fabOfficialSite;
     private TabLayout tabLayout;
 
     // Gestión de pestañas: Nombre del archivo -> Contenido (Cacheando Spannables
@@ -121,10 +123,14 @@ public class MainActivity extends AppCompatActivity {
         tvLineNumbers = findViewById(R.id.tvLineNumbers);
         fabAssemble = findViewById(R.id.fabAssemble);
         fabClear = findViewById(R.id.fabClear);
+        fabWebSimulator = findViewById(R.id.fabWebSimulator);
+        fabOfficialSite = findViewById(R.id.fabOfficialSite);
         tabLayout = findViewById(R.id.tabLayout);
 
         fabAssemble.setOnClickListener(v -> assembleCode());
         fabClear.setOnClickListener(v -> showClearConfirmationDialog());
+        fabWebSimulator.setOnClickListener(v -> openWebSimulator());
+        fabOfficialSite.setOnClickListener(v -> openOfficialSite());
 
         setupTabLayout();
         setupEditorSyntaxHighlighting();
@@ -137,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         // tic_tac_toe_2.asm - Ejemplo del compilador oficial del Megaprocessor
         executorService.execute(() -> {
             try {
-                final String exampleAsm = readAssetText("example.asm");
+                final String exampleAsm = readAssetText("tic_tac_toe_2.asm");
                 final String defsAsm = readAssetText("Megaprocessor_defs.asm");
 
                 mainHandler.post(() -> {
@@ -167,14 +173,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.action_save) {
-            exportFiles();
-            return true;
-        } else if (id == R.id.action_new_tab) {
+        if (id == R.id.action_new_tab) {
             showNewTabDialog();
             return true;
         } else if (id == R.id.action_open) {
             openFile();
+            return true;
+        } else if (id == R.id.action_project_info) {
+            startActivity(new Intent(this, ProjectInfoActivity.class));
             return true;
         } else if (id == R.id.action_about) {
             showAbout();
@@ -190,10 +196,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showAbout() {
-        String aboutText = "Megaprocessor ASM Android<br/>" +
+        String aboutText = "<b>Megaprocessor ASM Android</b><br/>" +
                 "Versión 1.0.8<br/><br/>" +
-                "Autor: Daniel Diamon (Danielk10)<br/>" +
-                "<b><a href=\"https://github.com/Danielk10/Megaprocessor-ASM-Android\">Repositorio Oficial</a></b>";
+                "Aplicación Android con núcleo nativo C++ para ensamblar programas del Megaprocessor, " +
+                "generar Intel HEX y listados LST, y verificar compatibilidad con referencias oficiales.<br/><br/>" +
+                "Este proyecto facilita aprendizaje de arquitectura de computadores y uso práctico " +
+                "del ecosistema Megaprocessor en dispositivos móviles.<br/><br/>" +
+                "<b><a href=\"https://www.megaprocessor.com/\">Sitio oficial del proyecto original</a></b><br/>" +
+                "<b><a href=\"https://github.com/Danielk10/Megaprocessor-ASM-Android\">Repositorio Android</a></b>";
 
         android.text.Spanned spanned;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
@@ -217,11 +227,32 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showLicenses() {
-        new AlertDialog.Builder(this)
+        String licensesText = "<b>Licencias y créditos</b><br/><br/>" +
+                "• Esta app se distribuye bajo licencia Apache 2.0.<br/>" +
+                "• El diseño e idea original de Megaprocessor pertenecen a James Newman.<br/>" +
+                "• El sitio oficial del proyecto original contiene documentación, arquitectura y simulador web.<br/><br/>" +
+                "<b><a href=\"https://www.apache.org/licenses/LICENSE-2.0\">Texto de Apache 2.0</a></b><br/>" +
+                "<b><a href=\"https://www.megaprocessor.com/\">Megaprocessor Official Site</a></b>";
+
+        android.text.Spanned spanned;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            spanned = android.text.Html.fromHtml(licensesText, android.text.Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            @SuppressWarnings("deprecation")
+            android.text.Spanned legacySpanned = android.text.Html.fromHtml(licensesText);
+            spanned = legacySpanned;
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.menu_licenses)
-                .setMessage(R.string.license_content)
+                .setMessage(spanned)
                 .setPositiveButton("OK", null)
                 .show();
+
+        TextView textView = (TextView) dialog.findViewById(android.R.id.message);
+        if (textView != null) {
+            textView.setMovementMethod(LinkMovementMethod.getInstance());
+        }
     }
 
     private void openFile() {
@@ -478,6 +509,7 @@ public class MainActivity extends AppCompatActivity {
         TextView tvPopupHex = popupView.findViewById(R.id.tvPopupHex);
         Button btnClose = popupView.findViewById(R.id.btnClosePopup);
         Button btnExport = popupView.findViewById(R.id.btnExportPopup);
+        Button btnCopy = popupView.findViewById(R.id.btnCopyHexPopup);
 
         tvPopupHex.setText(hexContent);
 
@@ -486,8 +518,20 @@ public class MainActivity extends AppCompatActivity {
             exportFiles();
             popupWindow.dismiss();
         });
+        btnCopy.setOnClickListener(v -> copyHexToClipboard(hexContent.toString()));
 
         popupWindow.showAtLocation(findViewById(android.R.id.content), Gravity.CENTER, 0, 0);
+    }
+
+    private void copyHexToClipboard(String hexText) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            setStatus("No se pudo acceder al portapapeles", true);
+            return;
+        }
+        ClipData clip = ClipData.newPlainText("megaprocessor_hex", hexText);
+        clipboard.setPrimaryClip(clip);
+        setStatus("HEX copiado al portapapeles", false);
     }
 
     private void showNewTabDialog() {
@@ -636,10 +680,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openInstructionsDocs() {
-        openUrl("https://www.megaprocessor.com/architecture.html");
+        openUrl("https://www.megaprocessor.com/simulator.html");
     }
 
     private void openWebSimulator() {
+        openInstructionsDocs();
+    }
+
+    private void openOfficialSite() {
         openUrl("https://www.megaprocessor.com/");
     }
 
@@ -669,9 +717,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final String lst = assembler.getListing();
-        final String timestamp = String.valueOf(System.currentTimeMillis());
-        final String hexName = "megaprocessor_" + timestamp + ".hex";
-        final String lstName = "megaprocessor_" + timestamp + ".lst";
+        final String baseName = getCurrentTabBaseName();
+        final String hexName = baseName + ".hex";
+        final String lstName = baseName + ".lst";
 
         setStatus("Exportando a Descargas...", false);
         executorService.execute(() -> {
@@ -680,6 +728,27 @@ public class MainActivity extends AppCompatActivity {
             mainHandler.post(() -> setStatus(hexSaved && lstSaved ? "Guardado en Descargas" : "Error al guardar",
                     !(hexSaved && lstSaved)));
         });
+    }
+
+    private String getCurrentTabBaseName() {
+        String tabName = currentTabName;
+        if (tabName == null || tabName.trim().isEmpty()) {
+            tabName = "programa";
+        }
+        tabName = tabName.trim();
+        int dot = tabName.lastIndexOf('.');
+        if (dot > 0) {
+            tabName = tabName.substring(0, dot);
+        }
+        return sanitizeFileName(tabName);
+    }
+
+    private String sanitizeFileName(String input) {
+        String cleaned = input.replaceAll("[\\/:*?\"<>|]", "_").trim();
+        if (cleaned.isEmpty()) {
+            return "programa";
+        }
+        return cleaned;
     }
 
     private boolean saveFileToDownloads(String fileName, String content) {
