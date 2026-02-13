@@ -1,0 +1,499 @@
+--- /workspace/Megaprocessor-ASM-Android/snail.lst	2026-02-13 14:13:02.919653016 +0000
++++ /workspace/Megaprocessor-ASM-Android/linux_cpp_compiled_outputs/generated/snail.lst	2026-02-13 16:27:43.410807932 +0000
+@@ -1,275 +1,221 @@
+- 1:    2 [0000]                          - // Start with shared definitions...
+- 2:    0 [0000]                          - include "Megaprocessor_defs.asm";
+- 2:    2 [0000]                          - // ===============================================================
+- 2:    3 [0000]                          - // 
+- 2:    4 [0000]                          - // Megaprocessor
+- 2:    5 [0000]                          - // =============
+- 2:    6 [0000]                          - // This file holds definitions useful for writing assembler
+- 2:    7 [0000]                          - // programs for the Megaprocessor.
+- 2:    8 [0000]                          - //
+- 2:    9 [0000]                          - // This version : 15th May 2016
+- 2:   10 [0000]                          - //
+- 2:   11 [0000]                          - // ================================================================
+- 2:   12 [0000]                          - //
+- 2:   13 [0000]                          - // Coding
+- 2:   14 [0000]                          - // =======
+- 2:   15 [0000]                          - // definition for interrupt enable bit
+- 2:   15 [0000]                          - PS_INT_ENABLE_BIT               equ     0x01;
+- 2:   17 [0000]                          - 
+- 2:   18 [0000]                          - // ================================================================
+- 2:   19 [0000]                          - //
+- 2:   20 [0000]                          - // To handle the 256 bytes of RAM built from discrete components:
+- 2:   20 [0000]                          - INT_RAM_START                   equ     0xA000;
+- 2:   21 [0000]                          - INT_RAM_LEN                     equ     0x0100;
+- 2:   23 [0000]                          - 
+- 2:   23 [0000]                          - INT_RAM_BYTES_ACROSS            equ     4;
+- 2:   24 [0000]                          - INT_RAM_BYTES_HEIGHT_AS_SHIFT   equ     6;
+- 2:   25 [0000]                          - INT_RAM_BYTES_HEIGHT            equ     64;// 1 << INT_RAM_BYTES_HEIGHT_AS_SHIFT
+- 2:   27 [0000]                          - 
+- 2:   28 [0000]                          - // ================================================================
+- 2:   29 [0000]                          - //
+- 2:   30 [0000]                          - // To handle the peripherals:
+- 2:   30 [0000]                          - PERIPHERALS_BASE                equ     0x8000;
+- 2:   31 [0000]                          - TIMER_BASE                      equ     PERIPHERALS_BASE + 0x00;
+- 2:   32 [0000]                          - UART_BASE                       equ     PERIPHERALS_BASE + 0x10;
+- 2:   33 [0000]                          - INTERRUPT_BASE                  equ     PERIPHERALS_BASE + 0x20;
+- 2:   34 [0000]                          - GEN_IO_BASE                     equ     PERIPHERALS_BASE + 0x30;
+- 2:   36 [0000]                          - 
+- 2:   37 [0000]                          - // register locations for the GPIO...
+- 2:   37 [0000]                          - GEN_IO_OUTPUT                   equ     GEN_IO_BASE + 0;
+- 2:   38 [0000]                          - GEN_IO_INPUT                    equ     GEN_IO_BASE + 2;
+- 2:   39 [0000]                          - GEN_IO_CTR                      equ     GEN_IO_BASE + 4;
+- 2:   41 [0000]                          - 
+- 2:   42 [0000]                          - // register locations for the Timer...
+- 2:   42 [0000]                          - TIME_BLK_COUNTER                equ     TIMER_BASE + 0x00;
+- 2:   43 [0000]                          - TIME_BLK_TIMER                  equ     TIMER_BASE + 0x02;
+- 2:   44 [0000]                          - TIME_BLK_TIMER_CTRL             equ     TIMER_BASE + 0x04;
+- 2:   46 [0000]                          - // bit definitions for timer control register
+- 2:   46 [0000]                          - TIME_BLK_TIMER_CTRL_EN_TIMER    equ     0x01;
+- 2:   47 [0000]                          - TIME_BLK_TIMER_CTRL_CLR_COUNT   equ     0x02;
+- 2:   48 [0000]                          - TIME_BLK_TIMER_CTRL_CLR_TIMER   equ     0x04;
+- 2:   50 [0000]                          - 
+- 2:   51 [0000]                          - // masks for selecting switch value on Venom Arcade Stick
+- 2:   52 [0000]                          - // (Switches are HIGH by "default", and go LOW on being pressed).
+- 2:   52 [0000]                          - IO_SWITCH_FLAG_UP               EQU     0x0001;
+- 2:   53 [0000]                          - IO_SWITCH_FLAG_DOWN             EQU     0x0002;
+- 2:   54 [0000]                          - IO_SWITCH_FLAG_LEFT             EQU     0x0004;
+- 2:   55 [0000]                          - IO_SWITCH_FLAG_RIGHT            EQU     0x0008;
+- 2:   56 [0000]                          - IO_SWITCH_FLAG_SQUARE           EQU     0x0010;
+- 2:   57 [0000]                          - IO_SWITCH_FLAG_TRIANGLE         EQU     0x0020;
+- 2:   58 [0000]                          - IO_SWITCH_FLAG_CIRCLE           EQU     0x0040;
+- 2:   59 [0000]                          - IO_SWITCH_FLAG_CROSS            EQU     0x0080;
+- 2:   60 [0000]                          - IO_SWITCH_FLAG_L1               EQU     0x0100;
+- 2:   61 [0000]                          - IO_SWITCH_FLAG_L2               EQU     0x0200;
+- 2:   62 [0000]                          - IO_SWITCH_FLAG_R1               EQU     0x0400;
+- 2:   63 [0000]                          - IO_SWITCH_FLAG_R2               EQU     0x0800;
+- 2:   65 [0000]                          - 
+- 2:   66 [0000]                          - // register locations for the Interrupt controller...
+- 2:   66 [0000]                          - INTERRUPT_SOURCE                EQU     INTERRUPT_BASE + 0x00;
+- 2:   67 [0000]                          - INTERRUPT_MASK                  EQU     INTERRUPT_BASE + 0x01;
+- 2:   69 [0000]                          - 
+- 2:   70 [0000]                          - // interrupt souurce enable/value bit masks
+- 2:   70 [0000]                          - INTERRUPT_BIT_USER              EQU     0x01;
+- 2:   71 [0000]                          - INTERRUPT_BIT_UART_SPACE        EQU     0x02;
+- 2:   72 [0000]                          - INTERRUPT_BIT_UART_RX_DATA      EQU     0x04;
+- 2:   73 [0000]                          - INTERRUPT_BIT_TIMER             EQU     0x08;
+- 2:   74 [0000]                          - INTERRUPT_BIT_COUNTER           EQU     0x10;
+- 2:   75 [0000]                          - INTERRUPT_BIT_INPUT_CHANGE      EQU     0x20;
+-                         - 
+- 1:    4 [0000]                          - 
+- 1:    5 [0000]                          - // *****************************************            
+- 1:    6 [0000]                          - // variables...
+- 1:    6 [4000]                          -         org 0x4000;
+- 1:    7 [4000] 00                       - head_x:     db;
+- 1:    8 [4001] 00                       - head_y:     db;
+- 1:    9 [4002] 00                       - tail_x:     db;
+- 1:   10 [4003] 00                       - tail_y:     db;
+- 1:   12 [4004]                          - 
+- 1:   13 [4004]                          - // *****************************************            
+- 1:   14 [4004]                          - // Code...
+- 1:   14 [0000]                          -         org  0;
+- 1:   16 [0000]                          -         
+- 1:   17 [0000]                          - // *****************************************            
+- 1:   18 [0000]                          - // vectors
+- 1:   18 [0000] F3 10 00                 - reset:       jmp    start;
+- 1:   19 [0003] FF                       -              nop;
+- 1:   20 [0004] C7                       - ext_int:     reti;
+- 1:   21 [0005] FF                       -              nop;
+- 1:   22 [0006] FF                       -              nop;
+- 1:   23 [0007] FF                       -              nop;        
+- 1:   24 [0008] C7                       - div_zero:    reti;
+- 1:   25 [0009] FF                       -              nop;
+- 1:   26 [000A] FF                       -              nop;
+- 1:   27 [000B] FF                       -              nop;        
+- 1:   28 [000C] C7                       - illegal:     reti;
+- 1:   29 [000D] FF                       -              nop;
+- 1:   30 [000E] FF                       -              nop;
+- 1:   31 [000F] FF                       -              nop;
+- 1:   33 [0010]                          - 
+- 1:   34 [0010]                          - // *****************************************            
+- 1:   35 [0010]                          - start:
+- 1:   36 [0010]                          -         // give ourselves a stack
+- 1:   36 [0010] D0 00 20                 -         ld.w    r0,#0x2000;
+- 1:   37 [0013] F1                       -         move    sp,r0;
+- 1:   39 [0014]                          -         
+- 1:   39 [0014] CF 3E 00                 -         jsr init;
+- 1:   41 [0017]                          - 
+- 1:   42 [0017]                          - busy_loop:
+- 1:   43 [0017]                          -         // head
+- 1:   43 [0017] B4 00 40                 -         ld.b    r0,head_x;
+- 1:   44 [001A] B5 01 40                 -         ld.b    r1,head_y;
+- 1:   45 [001D] CF 67 00                 -         jsr advance_ptr;
+- 1:   46 [0020] BC 00 40                 -         st.b    head_x,r0;
+- 1:   47 [0023] BD 01 40                 -         st.b    head_y,r1;
+- 1:   48 [0026] CF 7D 00                 -         jsr draw_point;
+- 1:   50 [0029]                          - 
+- 1:   51 [0029]                          -         // tail
+- 1:   51 [0029] B4 02 40                 -         ld.b    r0,tail_x;
+- 1:   52 [002C] B5 03 40                 -         ld.b    r1,tail_y;
+- 1:   53 [002F] CF 67 00                 -         jsr advance_ptr;
+- 1:   54 [0032] BC 02 40                 -         st.b    tail_x,r0;
+- 1:   55 [0035] BD 03 40                 -         st.b    tail_y,r1;
+- 1:   56 [0038] CF 7D 00                 -         jsr draw_point;
+- 1:   58 [003B]                          -         
+- 1:   58 [003B] F3 17 00                 -         jmp busy_loop;
+- 1:   60 [003E]                          - 
+- 1:   61 [003E]                          - // ***********************************************
+- 1:   62 [003E]                          - // Initialisation. Start by clearing down the internal RAM, and set
+- 1:   63 [003E]                          - // up first location of snail with head and tail ptrs.
+- 1:   64 [003E]                          - init:
+- 1:   65 [003E]                          -         // clear our RAM
+- 1:   65 [003E] 20                       -         xor     r0,r0;
+- 1:   66 [003F] D2 00 A0                 -         ld.w    r2,#INT_RAM_START;
+- 1:   67 [0042] D1 00 01                 -         ld.w    r1,#INT_RAM_LEN;
+- 1:   69 [0045]                          - clr_loop:
+- 1:   69 [0045] 98                       -         st.w    (r2++),r0;
+- 1:   70 [0046] 59                       -         addq    r1,#-2;
+- 1:   71 [0047] E6 FC                    -         bne     clr_loop;
+- 1:   73 [0049]                          - 
+- 1:   73 [0049] D4 01                    -         ld.b    r0,#1;
+- 1:   74 [004B] D5 17                    -         ld.b    r1,#23;
+- 1:   75 [004D] D7 04                    -         ld.b    r3,#4;
+- 1:   76 [004F] D2 04 A0                 -         ld.w    r2,#INT_RAM_START + 4;
+- 1:   78 [0052]                          - i1:
+- 1:   78 [0052] 8C                       -         st.b    (r2),r0;
+- 1:   79 [0053] 4E                       -         add r2,r3;
+- 1:   80 [0054] 5D                       -         addq    r1,#-1;
+- 1:   81 [0055] E6 FB                    -         bne i1;
+- 1:   83 [0057]                          - 
+- 1:   84 [0057]                          -         // set up head and tail ptrs...
+- 1:   84 [0057] 20                       -         xor r0,r0;
+- 1:   85 [0058] BC 02 40                 -         st.b    tail_x,r0;
+- 1:   86 [005B] BC 03 40                 -         st.b    tail_y,r0;
+- 1:   87 [005E] BC 00 40                 -         st.b    head_x,r0;
+- 1:   88 [0061] D4 17                    -         ld.b    r0,#23;
+- 1:   89 [0063] BC 01 40                 -         st.b    head_y,r0;
+- 1:   91 [0066]                          - 
+- 1:   91 [0066] C6                       -         ret;
+- 1:   93 [0067]                          -         
+- 1:   94 [0067]                          - // ********************************************************
+- 1:   95 [0067]                          - // advance ptr....x in r0, y in r1
+- 1:   96 [0067]                          - advance_ptr:
+- 1:   96 [0067] D6 01                    -         ld.b    r2,#1;
+- 1:   97 [0069] 12                       -         and r2,r0;
+- 1:   98 [006A] E6 07                    -         bne ap1;
+- 1:  100 [006C]                          -         
+- 1:  101 [006C]                          -         // we're on an even column, head down unless at 63 when we move over
+- 1:  101 [006C] D6 3F                    -         ld.b    r2,#63;
+- 1:  102 [006E] 76                       -         cmp r2,r1;
+- 1:  103 [006F] E7 07                    -         beq ap2;
+- 1:  104 [0071] 55                       -         addq    r1,#1;
+- 1:  105 [0072] C6                       -         ret;
+- 1:  107 [0073]                          -         
+- 1:  108 [0073]                          -         // we're on an odd column, head up unless we're at 0 when we move over
+- 1:  109 [0073]                          - ap1:
+- 1:  109 [0073] 15                       -         test    r1;
+- 1:  110 [0074] E7 02                    -         beq ap2;
+- 1:  111 [0076] 5D                       -         addq    r1,#-1;
+- 1:  112 [0077] C6                       -         ret;
+- 1:  114 [0078]                          - ap2:
+- 1:  114 [0078] 54                       -         addq    r0,#1;
+- 1:  115 [0079] D6 1F                    -         ld.b    r2,#0x1F;
+- 1:  116 [007B] 18                       -         and r0,r2;
+- 1:  117 [007C] C6                       -         ret;
+- 1:  119 [007D]                          -         
+- 1:  120 [007D]                          - // ********************************************************
+- 1:  121 [007D]                          - // draw point...x in r0, y in r1
+- 1:  122 [007D]                          - draw_point:
+- 1:  123 [007D]                          -         // first we construct the byte ptr
+- 1:  123 [007D] 02                       -         move    r2,r0;
+- 1:  124 [007E] D3 00 A0                 -         ld.w    r3,#INT_RAM_START;
+- 1:  125 [0081] DA 1D                    -         lsr r2,#3; // bit address to byte
+- 1:  126 [0083] 4B                       -         add r3,r2;
+- 1:  127 [0084] D9 02                    -         lsl r1,#2; // y os byte offset
+- 1:  128 [0086] 47                       -         add r3,r1;
+- 1:  130 [0087]                          -         // and now the mask
+- 1:  130 [0087] D5 01                    -         ld.b    r1,#1;
+- 1:  131 [0089] D6 07                    -         ld.b    r2,#7;
+- 1:  132 [008B] 18                       -         and r0,r2;
+- 1:  133 [008C] D9 20                    -         lsl r1,r0;
+- 1:  135 [008E]                          -         
+- 1:  136 [008E]                          -         // and now apply
+- 1:  136 [008E] 86                       -         ld.b    r0,(r3);
+- 1:  137 [008F] 24                       -         xor r0,r1;
+- 1:  138 [0090] 8E                       -         st.b    (r3),r0;
+- 1:  140 [0091]                          -         
+- 1:  140 [0091] C6                       -         ret;
+- 1:  142 [0092]                          - 
+- 0:    0 [0092]                          - // ********************************************************
+-                             ADVANCE_PTR  = 0x00000067,      103   : Integer. Decl File  1, Line   95
+-                                     AP1  = 0x00000073,      115   : Integer. Decl File  1, Line  108
+-                                     AP2  = 0x00000078,      120   : Integer. Decl File  1, Line  113
+-                               BUSY_LOOP  = 0x00000017,       23   : Integer. Decl File  1, Line   41
+-                                CLR_LOOP  = 0x00000045,       69   : Integer. Decl File  1, Line   68
+-                                DIV_ZERO  = 0x00000008,        8   : Integer. Decl File  1, Line   24
+-                              DRAW_POINT  = 0x0000007D,      125   : Integer. Decl File  1, Line  121
+-                                 EXT_INT  = 0x00000004,        4   : Integer. Decl File  1, Line   20
+-                             GEN_IO_BASE  = 0x00008030,    32816   : Integer. Decl File  2, Line   34
+-                              GEN_IO_CTR  = 0x00008034,    32820   : Integer. Decl File  2, Line   39
+-                            GEN_IO_INPUT  = 0x00008032,    32818   : Integer. Decl File  2, Line   38
+-                           GEN_IO_OUTPUT  = 0x00008030,    32816   : Integer. Decl File  2, Line   37
+-                                  HEAD_X  = 0x00004000,    16384   : Integer. Decl File  1, Line    7
+-                                  HEAD_Y  = 0x00004001,    16385   : Integer. Decl File  1, Line    8
+-                                      I1  = 0x00000052,       82   : Integer. Decl File  1, Line   77
+-                                 ILLEGAL  = 0x0000000C,       12   : Integer. Decl File  1, Line   28
+-                                    INIT  = 0x0000003E,       62   : Integer. Decl File  1, Line   63
+-                          INTERRUPT_BASE  = 0x00008020,    32800   : Integer. Decl File  2, Line   33
+-                   INTERRUPT_BIT_COUNTER  = 0x00000010,       16   : Integer. Decl File  2, Line   74
+-              INTERRUPT_BIT_INPUT_CHANGE  = 0x00000020,       32   : Integer. Decl File  2, Line   75
+-                     INTERRUPT_BIT_TIMER  = 0x00000008,        8   : Integer. Decl File  2, Line   73
+-              INTERRUPT_BIT_UART_RX_DATA  = 0x00000004,        4   : Integer. Decl File  2, Line   72
+-                INTERRUPT_BIT_UART_SPACE  = 0x00000002,        2   : Integer. Decl File  2, Line   71
+-                      INTERRUPT_BIT_USER  = 0x00000001,        1   : Integer. Decl File  2, Line   70
+-                          INTERRUPT_MASK  = 0x00008021,    32801   : Integer. Decl File  2, Line   67
+-                        INTERRUPT_SOURCE  = 0x00008020,    32800   : Integer. Decl File  2, Line   66
+-                    INT_RAM_BYTES_ACROSS  = 0x00000004,        4   : Integer. Decl File  2, Line   23
+-                    INT_RAM_BYTES_HEIGHT  = 0x00000040,       64   : Integer. Decl File  2, Line   25
+-           INT_RAM_BYTES_HEIGHT_AS_SHIFT  = 0x00000006,        6   : Integer. Decl File  2, Line   24
+-                             INT_RAM_LEN  = 0x00000100,      256   : Integer. Decl File  2, Line   21
+-                           INT_RAM_START  = 0x0000A000,    40960   : Integer. Decl File  2, Line   20
+-                   IO_SWITCH_FLAG_CIRCLE  = 0x00000040,       64   : Integer. Decl File  2, Line   58
+-                    IO_SWITCH_FLAG_CROSS  = 0x00000080,      128   : Integer. Decl File  2, Line   59
+-                     IO_SWITCH_FLAG_DOWN  = 0x00000002,        2   : Integer. Decl File  2, Line   53
+-                       IO_SWITCH_FLAG_L1  = 0x00000100,      256   : Integer. Decl File  2, Line   60
+-                       IO_SWITCH_FLAG_L2  = 0x00000200,      512   : Integer. Decl File  2, Line   61
+-                     IO_SWITCH_FLAG_LEFT  = 0x00000004,        4   : Integer. Decl File  2, Line   54
+-                       IO_SWITCH_FLAG_R1  = 0x00000400,     1024   : Integer. Decl File  2, Line   62
+-                       IO_SWITCH_FLAG_R2  = 0x00000800,     2048   : Integer. Decl File  2, Line   63
+-                    IO_SWITCH_FLAG_RIGHT  = 0x00000008,        8   : Integer. Decl File  2, Line   55
+-                   IO_SWITCH_FLAG_SQUARE  = 0x00000010,       16   : Integer. Decl File  2, Line   56
+-                 IO_SWITCH_FLAG_TRIANGLE  = 0x00000020,       32   : Integer. Decl File  2, Line   57
+-                       IO_SWITCH_FLAG_UP  = 0x00000001,        1   : Integer. Decl File  2, Line   52
+-                        PERIPHERALS_BASE  = 0x00008000,    32768   : Integer. Decl File  2, Line   30
+-                       PS_INT_ENABLE_BIT  = 0x00000001,        1   : Integer. Decl File  2, Line   15
+-                                   RESET  = 0x00000000,        0   : Integer. Decl File  1, Line   18
+-                                   START  = 0x00000010,       16   : Integer. Decl File  1, Line   34
+-                                  TAIL_X  = 0x00004002,    16386   : Integer. Decl File  1, Line    9
+-                                  TAIL_Y  = 0x00004003,    16387   : Integer. Decl File  1, Line   10
+-                              TIMER_BASE  = 0x00008000,    32768   : Integer. Decl File  2, Line   31
+-                        TIME_BLK_COUNTER  = 0x00008000,    32768   : Integer. Decl File  2, Line   42
+-                          TIME_BLK_TIMER  = 0x00008002,    32770   : Integer. Decl File  2, Line   43
+-                     TIME_BLK_TIMER_CTRL  = 0x00008004,    32772   : Integer. Decl File  2, Line   44
+-           TIME_BLK_TIMER_CTRL_CLR_COUNT  = 0x00000002,        2   : Integer. Decl File  2, Line   47
+-           TIME_BLK_TIMER_CTRL_CLR_TIMER  = 0x00000004,        4   : Integer. Decl File  2, Line   48
+-            TIME_BLK_TIMER_CTRL_EN_TIMER  = 0x00000001,        1   : Integer. Decl File  2, Line   46
+-                               UART_BASE  = 0x00008010,    32784   : Integer. Decl File  2, Line   32
++   1:                    // Start with shared definitions...
++   2: 0000               include "Megaprocessor_defs.asm";
++   3:                    // ===============================================================
++   4:                    // 
++   5:                    // Megaprocessor
++   6:                    // =============
++   7:                    // This file holds definitions useful for writing assembler
++   8:                    // programs for the Megaprocessor.
++   9:                    //
++  10:                    // This version : 15th May 2016
++  11:                    //
++  12:                    // ================================================================
++  13:                    //
++  14:                    // Coding
++  15:                    // =======
++  16:                    // definition for interrupt enable bit
++  17: 0001               PS_INT_ENABLE_BIT               equ     0x01;
++  18:                    
++  19:                    // ================================================================
++  20:                    //
++  21:                    // To handle the 256 bytes of RAM built from discrete components:
++  22: A000               INT_RAM_START                   equ     0xA000;
++  23: 0100               INT_RAM_LEN                     equ     0x0100;
++  24:                    
++  25: 0004               INT_RAM_BYTES_ACROSS            equ     4;
++  26: 0006               INT_RAM_BYTES_HEIGHT_AS_SHIFT   equ     6;
++  27: 0040               INT_RAM_BYTES_HEIGHT            equ     64;// 1 << INT_RAM_BYTES_HEIGHT_AS_SHIFT
++  28:                    
++  29:                    // ================================================================
++  30:                    //
++  31:                    // To handle the peripherals:
++  32: 8000               PERIPHERALS_BASE                equ     0x8000;
++  33: 8000               TIMER_BASE                      equ     PERIPHERALS_BASE + 0x00;
++  34: 8010               UART_BASE                       equ     PERIPHERALS_BASE + 0x10;
++  35: 8020               INTERRUPT_BASE                  equ     PERIPHERALS_BASE + 0x20;
++  36: 8030               GEN_IO_BASE                     equ     PERIPHERALS_BASE + 0x30;
++  37:                    
++  38:                    // register locations for the GPIO...
++  39: 8030               GEN_IO_OUTPUT                   equ     GEN_IO_BASE + 0;
++  40: 8032               GEN_IO_INPUT                    equ     GEN_IO_BASE + 2;
++  41: 8034               GEN_IO_CTR                      equ     GEN_IO_BASE + 4;
++  42:                    
++  43:                    // register locations for the Timer...
++  44: 8000               TIME_BLK_COUNTER                equ     TIMER_BASE + 0x00;
++  45: 8002               TIME_BLK_TIMER                  equ     TIMER_BASE + 0x02;
++  46: 8004               TIME_BLK_TIMER_CTRL             equ     TIMER_BASE + 0x04;
++  47:                    // bit definitions for timer control register
++  48: 0001               TIME_BLK_TIMER_CTRL_EN_TIMER    equ     0x01;
++  49: 0002               TIME_BLK_TIMER_CTRL_CLR_COUNT   equ     0x02;
++  50: 0004               TIME_BLK_TIMER_CTRL_CLR_TIMER   equ     0x04;
++  51:                    
++  52:                    // masks for selecting switch value on Venom Arcade Stick
++  53:                    // (Switches are HIGH by "default", and go LOW on being pressed).
++  54: 0001               IO_SWITCH_FLAG_UP               EQU     0x0001;
++  55: 0002               IO_SWITCH_FLAG_DOWN             EQU     0x0002;
++  56: 0004               IO_SWITCH_FLAG_LEFT             EQU     0x0004;
++  57: 0008               IO_SWITCH_FLAG_RIGHT            EQU     0x0008;
++  58: 0010               IO_SWITCH_FLAG_SQUARE           EQU     0x0010;
++  59: 0020               IO_SWITCH_FLAG_TRIANGLE         EQU     0x0020;
++  60: 0040               IO_SWITCH_FLAG_CIRCLE           EQU     0x0040;
++  61: 0080               IO_SWITCH_FLAG_CROSS            EQU     0x0080;
++  62: 0100               IO_SWITCH_FLAG_L1               EQU     0x0100;
++  63: 0200               IO_SWITCH_FLAG_L2               EQU     0x0200;
++  64: 0400               IO_SWITCH_FLAG_R1               EQU     0x0400;
++  65: 0800               IO_SWITCH_FLAG_R2               EQU     0x0800;
++  66:                    
++  67:                    // register locations for the Interrupt controller...
++  68: 8020               INTERRUPT_SOURCE                EQU     INTERRUPT_BASE + 0x00;
++  69: 8021               INTERRUPT_MASK                  EQU     INTERRUPT_BASE + 0x01;
++  70:                    
++  71:                    // interrupt souurce enable/value bit masks
++  72: 0001               INTERRUPT_BIT_USER              EQU     0x01;
++  73: 0002               INTERRUPT_BIT_UART_SPACE        EQU     0x02;
++  74: 0004               INTERRUPT_BIT_UART_RX_DATA      EQU     0x04;
++  75: 0008               INTERRUPT_BIT_TIMER             EQU     0x08;
++  76: 0010               INTERRUPT_BIT_COUNTER           EQU     0x10;
++  77: 0020               INTERRUPT_BIT_INPUT_CHANGE      EQU     0x20;
++  78:                    
++  79:                    
++  80:                    
++  81:                    // *****************************************
++  82:                    // variables...
++  83: 4000               org 0x4000;
++  84: 4000 00              head_x:     db;
++  85: 4001 00              head_y:     db;
++  86: 4002 00              tail_x:     db;
++  87: 4003 00              tail_y:     db;
++  88:                    
++  89:                    // *****************************************
++  90:                    // Code...
++  91: 0000               org  0;
++  92:                    
++  93:                    // *****************************************
++  94:                    // vectors
++  95: 0000 F3 10 00        reset:       jmp    start;
++  96: 0003 FF              nop;
++  97: 0004 C7              ext_int:     reti;
++  98: 0005 FF              nop;
++  99: 0006 FF              nop;
++ 100: 0007 FF              nop;
++ 101: 0008 C7              div_zero:    reti;
++ 102: 0009 FF              nop;
++ 103: 000A FF              nop;
++ 104: 000B FF              nop;
++ 105: 000C C7              illegal:     reti;
++ 106: 000D FF              nop;
++ 107: 000E FF              nop;
++ 108: 000F FF              nop;
++ 109:                    
++ 110:                    // *****************************************
++ 111:                    start:
++ 112:                    // give ourselves a stack
++ 113: 0010 D0 00 20        ld.w    r0,#0x2000;
++ 114: 0013 F1              move    sp,r0;
++ 115:                    
++ 116: 0014 CF 3E 00        jsr init;
++ 117:                    
++ 118:                    busy_loop:
++ 119:                    // head
++ 120: 0017 B4 00 40        ld.b    r0,head_x;
++ 121: 001A B5 01 40        ld.b    r1,head_y;
++ 122: 001D CF 67 00        jsr advance_ptr;
++ 123: 0020 BC 00 40        st.b    head_x,r0;
++ 124: 0023 BD 01 40        st.b    head_y,r1;
++ 125: 0026 CF 7D 00        jsr draw_point;
++ 126:                    
++ 127:                    // tail
++ 128: 0029 B4 02 40        ld.b    r0,tail_x;
++ 129: 002C B5 03 40        ld.b    r1,tail_y;
++ 130: 002F CF 67 00        jsr advance_ptr;
++ 131: 0032 BC 02 40        st.b    tail_x,r0;
++ 132: 0035 BD 03 40        st.b    tail_y,r1;
++ 133: 0038 CF 7D 00        jsr draw_point;
++ 134:                    
++ 135: 003B F3 17 00        jmp busy_loop;
++ 136:                    
++ 137:                    // ***********************************************
++ 138:                    // Initialisation. Start by clearing down the internal RAM, and set
++ 139:                    // up first location of snail with head and tail ptrs.
++ 140:                    init:
++ 141:                    // clear our RAM
++ 142: 003E 20              xor     r0,r0;
++ 143: 003F D2 00 A0        ld.w    r2,#INT_RAM_START;
++ 144: 0042 D1 00 01        ld.w    r1,#INT_RAM_LEN;
++ 145:                    clr_loop:
++ 146: 0045 98              st.w    (r2++),r0;
++ 147: 0046 59              addq    r1,#-2;
++ 148: 0047 E6 FC           bne     clr_loop;
++ 149:                    
++ 150: 0049 D4 01           ld.b    r0,#1;
++ 151: 004B D5 17           ld.b    r1,#23;
++ 152: 004D D7 04           ld.b    r3,#4;
++ 153: 004F D2 04 A0        ld.w    r2,#INT_RAM_START + 4;
++ 154:                    i1:
++ 155: 0052 8C              st.b    (r2),r0;
++ 156: 0053 4E              add r2,r3;
++ 157: 0054 5D              addq    r1,#-1;
++ 158: 0055 E6 FB           bne i1;
++ 159:                    
++ 160:                    // set up head and tail ptrs...
++ 161: 0057 20              xor r0,r0;
++ 162: 0058 BC 02 40        st.b    tail_x,r0;
++ 163: 005B BC 03 40        st.b    tail_y,r0;
++ 164: 005E BC 00 40        st.b    head_x,r0;
++ 165: 0061 D4 17           ld.b    r0,#23;
++ 166: 0063 BC 01 40        st.b    head_y,r0;
++ 167:                    
++ 168: 0066 C6              ret;
++ 169:                    
++ 170:                    // ********************************************************
++ 171:                    // advance ptr....x in r0, y in r1
++ 172:                    advance_ptr:
++ 173: 0067 D6 01           ld.b    r2,#1;
++ 174: 0069 12              and r2,r0;
++ 175: 006A E6 07           bne ap1;
++ 176:                    
++ 177:                    // we're on an even column, head down unless at 63 when we move over
++ 178: 006C D6 3F           ld.b    r2,#63;
++ 179: 006E 76              cmp r2,r1;
++ 180: 006F E7 07           beq ap2;
++ 181: 0071 55              addq    r1,#1;
++ 182: 0072 C6              ret;
++ 183:                    
++ 184:                    // we're on an odd column, head up unless we're at 0 when we move over
++ 185:                    ap1:
++ 186: 0073 15              test    r1;
++ 187: 0074 E7 02           beq ap2;
++ 188: 0076 5D              addq    r1,#-1;
++ 189: 0077 C6              ret;
++ 190:                    ap2:
++ 191: 0078 54              addq    r0,#1;
++ 192: 0079 D6 1F           ld.b    r2,#0x1F;
++ 193: 007B 18              and r0,r2;
++ 194: 007C C6              ret;
++ 195:                    
++ 196:                    // ********************************************************
++ 197:                    // draw point...x in r0, y in r1
++ 198:                    draw_point:
++ 199:                    // first we construct the byte ptr
++ 200: 007D 02              move    r2,r0;
++ 201: 007E D3 00 A0        ld.w    r3,#INT_RAM_START;
++ 202: 0081 DA 1D           lsr r2,#3; // bit address to byte
++ 203: 0083 4B              add r3,r2;
++ 204: 0084 D9 02           lsl r1,#2; // y os byte offset
++ 205: 0086 47              add r3,r1;
++ 206:                    // and now the mask
++ 207: 0087 D5 01           ld.b    r1,#1;
++ 208: 0089 D6 07           ld.b    r2,#7;
++ 209: 008B 18              and r0,r2;
++ 210: 008C D9 20           lsl r1,r0;
++ 211:                    
++ 212:                    // and now apply
++ 213: 008E 86              ld.b    r0,(r3);
++ 214: 008F 24              xor r0,r1;
++ 215: 0090 8E              st.b    (r3),r0;
++ 216:                    
++ 217: 0091 C6              ret;
++ 218:                    
++ 219:                    // ********************************************************
++ 220:                    
++ 221:                    
