@@ -92,8 +92,8 @@ uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
     // Note: SUB and CMP use the same base for registers? 
     // opcodes.lst: sub r1,r0 -> 61. cmp r1,r0 -> 71.
     if (mnemonic == "SUB" || mnemonic == "NEG") return 0x60 + regCode;
-    if (mnemonic == "CMP") return 0x70 + regCode;
-    if (mnemonic == "SXT" || mnemonic == "ABS") return 0x00 + regCode; // SXT/ABS use ra=rb in opcodes.lst
+    if (mnemonic == "CMP" || mnemonic == "ABS") return 0x70 + regCode;
+    if (mnemonic == "SXT") return 0x00 + regCode; // SXT uses ra=rb in opcodes.lst (MOVE rx, rx)
     
     return 0xFF;
 }
@@ -280,16 +280,17 @@ int32_t Assembler::parseFactor(const char*& p) {
             p += 2;
             while (isxdigit(*p)) numStr += *p++;
             if (numStr.empty()) throw std::runtime_error("Invalid hex literal");
-            return std::stoi(numStr, nullptr, 16);
+            // Use stoul to avoid overflow for values like 0xDEADBEEF
+            return static_cast<int32_t>(std::stoul(numStr, nullptr, 16));
         }
         if (*p == '0' && (toupper(*(p+1)) == 'B')) {
             p += 2;
             while (*p == '0' || *p == '1') numStr += *p++;
             if (numStr.empty()) throw std::runtime_error("Invalid binary literal");
-            return std::stoi(numStr, nullptr, 2);
+            return static_cast<int32_t>(std::stoul(numStr, nullptr, 2));
         }
         while (isdigit(*p)) numStr += *p++;
-        return std::stoi(numStr);
+        return static_cast<int32_t>(std::stoul(numStr));
     }
     if (isalpha(*p) || *p == '_') {
         std::string symName;
@@ -314,16 +315,40 @@ std::string Assembler::normalizeIncludeName(const std::string& includeToken) con
     return toUpper(trim(token));
 }
 
-std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::string>& lines, std::string& error,
+std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::string>& rawLines, std::string& error,
                                                        std::vector<std::string>& includeStack) const {
+    std::vector<std::string> lines = rawLines;
+    
+    // First, handle block comments /* ... */ across all lines in this file/buffer
+    std::string fullSource;
+    for (const auto& line : lines) fullSource += line + "\n";
+    
+    std::string cleaned;
+    bool inBlockComment = false;
+    for (size_t i = 0; i < fullSource.size(); ++i) {
+        if (!inBlockComment && i + 1 < fullSource.size() && fullSource[i] == '/' && fullSource[i+1] == '*') {
+            inBlockComment = true;
+            i++;
+        } else if (inBlockComment && i + 1 < fullSource.size() && fullSource[i] == '*' && fullSource[i+1] == '/') {
+            inBlockComment = false;
+            i++;
+        } else if (!inBlockComment) {
+            cleaned += fullSource[i];
+        }
+    }
+    
     std::vector<std::string> expanded;
-    for (const auto& rawLine : lines) {
+    std::vector<std::string> linesToProcess = split(cleaned, '\n');
+    
+    for (const auto& rawLine : linesToProcess) {
         std::string line = rawLine;
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         commentPos = line.find(';');
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         line = trim(line);
+
+        if (line.empty() && rawLine.empty()) continue; // Skip empty lines after stripping
 
         std::stringstream ss(line);
         std::string mnemonic;
