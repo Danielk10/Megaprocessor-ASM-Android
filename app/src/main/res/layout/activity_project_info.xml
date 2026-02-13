@@ -100,7 +100,7 @@
                 android:id="@+id/linkWebSimulator"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="• Emulador / simulador web"
+                android:text="• Emulador"
                 android:textColor="@color/accent"
                 android:paddingBottom="6dp" />
 
