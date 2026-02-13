@@ -348,6 +348,8 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
     LOGI("Starting Pass 1...");
     currentAddress = 0;
     int lineNum = 0;
+    std::vector<std::pair<std::string, std::pair<std::string, int>>> pendingEQUs;
+
     for (const auto& rawLine : lines) {
         lineNum++;
         std::string line = rawLine;
@@ -356,20 +358,23 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         commentPos = line.find(';');
         if (commentPos != std::string::npos) line = line.substr(0, commentPos);
         line = trim(line);
+
         if (line.empty()) continue;
 
         std::stringstream ssEqu(line);
         std::string label, equMnemonic;
         ssEqu >> label >> equMnemonic;
         if (toUpper(equMnemonic) == "EQU") {
-            std::string expr; std::getline(ssEqu, expr);
+            std::string valStr; std::getline(ssEqu, valStr);
+            valStr = trim(valStr);
             int32_t val;
-            if (!evaluateExpression(expr, val)) {
-                error = "Invalid EQU expression at line " + std::to_string(lineNum) + ": " + expressionError;
-                return false;
+            if (evaluateExpression(valStr, val)) {
+                symbolTable[toUpper(label)] = {label, val, CONSTANT, true};
+            } else {
+                // Defer resolution
+                symbolTable[toUpper(label)] = {label, 0, CONSTANT, false}; // Mark as undefined for now
+                pendingEQUs.push_back({toUpper(label), {valStr, lineNum}});
             }
-            std::string labelKey = toUpper(label);
-            symbolTable[labelKey] = {label, val, CONSTANT, true};
             continue;
         }
 
@@ -377,8 +382,7 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         if (colonPos != std::string::npos) {
             std::string labelName = trim(line.substr(0, colonPos));
             if (!labelName.empty()) {
-                std::string labelKey = toUpper(labelName);
-                symbolTable[labelKey] = {labelName, (int32_t)currentAddress, LABEL, true};
+                symbolTable[toUpper(labelName)] = {labelName, (int32_t)currentAddress, LABEL, true};
             }
             line = trim(line.substr(colonPos + 1));
         }
@@ -386,6 +390,13 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
 
         std::stringstream ss(line);
         std::string mnemonic; ss >> mnemonic; mnemonic = toUpper(mnemonic);
+        
+        // Handle .WT suffix for shifts
+        if (mnemonic.size() > 3 && mnemonic.substr(mnemonic.size()-3) == ".WT") {
+            mnemonic = mnemonic.substr(0, mnemonic.size()-3);
+        }
+
+        if (mnemonic.empty()) continue;
         int size = 1;
         if (mnemonic == "ORG") {
             std::string valStr; std::getline(ss, valStr);
@@ -456,6 +467,30 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
         }
         currentAddress += size;
     }
+    
+    // Attempt to resolve pending EQUs
+    bool progress = true;
+    while (progress && !pendingEQUs.empty()) {
+        progress = false;
+        for (auto it = pendingEQUs.begin(); it != pendingEQUs.end(); ) {
+            int32_t val;
+            if (evaluateExpression(it->second.first, val)) {
+                symbolTable[it->first] = {val, true};
+                it = pendingEQUs.erase(it);
+                progress = true;
+            } else {
+                ++it;
+            }
+        }
+    }
+    if (!pendingEQUs.empty()) {
+        error = "Undefined Symbol: " + pendingEQUs.front().second.first + " at line " + std::to_string(pendingEQUs.front().second.second);
+        // We report the expression mostly, but ideally the missing symbol is inside evaluation
+        // Let's just default to the original error message style
+         error = "Invalid EQU expression at line " + std::to_string(pendingEQUs.front().second.second) + " (Unresolved forward reference?)";
+        return false;
+    }
+
     LOGI("Finished Pass 1.");
     return true;
 }
@@ -494,10 +529,18 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
 
         std::stringstream ss(line);
         std::string mnemonic; ss >> mnemonic; mnemonic = toUpper(mnemonic);
+        
+        bool isWT = false;
+        if (mnemonic.size() > 3 && mnemonic.substr(mnemonic.size()-3) == ".WT") {
+            mnemonic = mnemonic.substr(0, mnemonic.size()-3);
+            isWT = true;
+        }
+
         if (mnemonic.empty()) { instructions.push_back(inst); continue; }
 
         std::vector<uint8_t>& bytes = inst.bytes;
         std::string rest; std::getline(ss, rest);
+
         std::vector<std::string> opList = split(rest, ',');
         std::string op1 = opList.size() > 0 ? opList[0] : "";
         std::string op2 = opList.size() > 1 ? opList[1] : "";
@@ -715,6 +758,8 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             } else {
                 opByte |= (shiftVal & 0x1F);
             }
+            
+            if (isWT) opByte |= 0x08; // Set write-through/flag bit if .WT used
 
             bytes.push_back(0xD8 + r);
             bytes.push_back(opByte);
