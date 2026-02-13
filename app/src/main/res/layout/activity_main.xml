@@ -28,10 +28,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@color/primary_variant"
-            app:tabTextColor="@color/on_primary"
-            app:tabSelectedTextColor="@color/accent"
             app:tabIndicatorColor="@color/accent"
             app:tabMode="scrollable"
+            app:tabSelectedTextColor="@color/accent"
+            app:tabTextColor="@color/on_primary"
             app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
@@ -67,7 +67,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <!-- Columna de números de línea -->
                     <TextView
                         android:id="@+id/tvLineNumbers"
                         android:layout_width="wrap_content"
@@ -82,13 +81,11 @@
                         android:textColor="@color/line_numbers_text"
                         android:textSize="14sp" />
 
-                    <!-- Divisor visual -->
                     <View
                         android:layout_width="1dp"
                         android:layout_height="match_parent"
                         android:background="@color/line_numbers_divider" />
 
-                    <!-- El Editor -->
                     <EditText
                         android:id="@+id/etSourceCode"
                         android:layout_width="wrap_content"
@@ -100,13 +97,39 @@
                         android:hint="@string/hint_editor"
                         android:inputType="textMultiLine|textNoSuggestions"
                         android:padding="12dp"
-                        android:textSize="14sp"
-                        android:textColor="@color/on_surface" />
+                        android:textColor="@color/on_surface"
+                        android:textSize="14sp" />
                 </LinearLayout>
             </HorizontalScrollView>
         </ScrollView>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabOfficialSite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="232dp"
+        android:contentDescription="@string/btn_official_site"
+        android:src="@android:drawable/ic_menu_info_details"
+        app:backgroundTint="@color/surface"
+        app:elevation="6dp"
+        app:tint="@color/primary" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabWebSimulator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="160dp"
+        android:contentDescription="@string/btn_web_sim"
+        android:src="@android:drawable/ic_menu_compass"
+        app:backgroundTint="@color/surface"
+        app:elevation="6dp"
+        app:tint="@color/primary" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabClear"
@@ -115,11 +138,11 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="88dp"
+        android:contentDescription="@string/btn_clear"
         android:src="@android:drawable/ic_menu_delete"
         app:backgroundTint="@color/surface"
-        app:tint="@color/primary"
         app:elevation="6dp"
-        android:contentDescription="@string/btn_clear" />
+        app:tint="@color/primary" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAssemble"
@@ -129,7 +152,7 @@
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_media_play"
         app:backgroundTint="@color/accent"
-        app:tint="@color/on_accent"
-        app:elevation="6dp" />
+        app:elevation="6dp"
+        app:tint="@color/on_accent" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

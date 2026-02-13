@@ -1,0 +1,2671 @@
+ 1:    2 [0000]                          - // Based on PET TETRIS by Tim Howe
+ 1:    3 [0000]                          - // https://www.youtube.com/watch?v=vJWDFWn8Kjc
+ 1:    4 [0000]                          - 
+ 1:    5 [0000]                          - // There are 7 different tetrominoes:
+ 1:    6 [0000]                          - // Type I
+ 1:    7 [0000]                          - //               #             #  
+ 1:    8 [0000]                          - //       ####    #     ####    #  
+ 1:    9 [0000]                          - //               #             #  
+ 1:   10 [0000]                          - //               #             #  
+ 1:   11 [0000]                          - // Type O
+ 1:   12 [0000]                          - //        ##     ##     ##     ## 
+ 1:   13 [0000]                          - //        ##     ##     ##     ## 
+ 1:   14 [0000]                          - //                                
+ 1:   15 [0000]                          - //                                
+ 1:   16 [0000]                          - // Type T
+ 1:   17 [0000]                          - //       ###      #           #   
+ 1:   18 [0000]                          - //        #      ##     #     ##  
+ 1:   19 [0000]                          - //                #    ###    #   
+ 1:   20 [0000]                          - //                                
+ 1:   21 [0000]                          - // Type S
+ 1:   22 [0000]                          - //       ##       #            #  
+ 1:   23 [0000]                          - //        ##     ##    ##     ##  
+ 1:   24 [0000]                          - //               #      ##    #   
+ 1:   25 [0000]                          - //                                
+ 1:   26 [0000]                          - // Type Z
+ 1:   27 [0000]                          - //        ##     #            #   
+ 1:   28 [0000]                          - //       ##      ##     ##    ##  
+ 1:   29 [0000]                          - //                #    ##      #  
+ 1:   30 [0000]                          - //                                
+ 1:   31 [0000]                          - // Type J
+ 1:   32 [0000]                          - //       ###      #           ##  
+ 1:   33 [0000]                          - //         #      #    #      #   
+ 1:   34 [0000]                          - //               ##    ###    #   
+ 1:   35 [0000]                          - //                                
+ 1:   36 [0000]                          - // Type L
+ 1:   37 [0000]                          - //       ###     ##           #   
+ 1:   38 [0000]                          - //       #        #      #    #   
+ 1:   39 [0000]                          - //                #    ###    ##  
+ 1:   40 [0000]                          - //                                
+ 1:   41 [0000]                          - 
+ 1:   42 [0000]                          - // We play on a board with a legal area 10 cells wide and 20 tall.
+ 1:   43 [0000]                          - // The actual board we play on is (for implementation purposes) 16 cells wide and 26 tall
+ 1:   44 [0000]                          - // with the legal area occupying the central 10x20.
+ 1:   45 [0000]                          - // The thick walls of non-legal area make for easier checks of legal moves as we can just set
+ 1:   46 [0000]                          - // them as occupied and thus we just check for occupied cells and don't worry about explicitly
+ 1:   47 [0000]                          - // checking for boundaries.
+ 1:   48 [0000]                          - //
+ 1:   49 [0000]                          - // Top left of the whole board is (0,0).
+ 1:   50 [0000]                          - // Our start position is (8,3).
+ 1:   51 [0000]                          - //
+ 1:   52 [0000]                          - // The board is represented as 26 16 bit words.
+ 1:   53 [0000]                          - // Set bits represent occupied cells, clear bits represent free bits.
+ 1:   54 [0000]                          - // A 3 bit wide border is permenantly set to implement the walls/boundaries.
+ 1:   55 [0000]                          - // 
+ 1:   56 [0000]                          - // We allow 13 possible offsets with 0 being the top left corner of a tetromino being offset 0 from the left.
+ 1:   57 [0000]                          - // (Technically they could be upto 16, but nothing would be legal in the last 3. One could argue none of
+ 1:   58 [0000]                          - // the first 3 would be either, but its easier to have them than not).
+ 1:   59 [0000]                          - // 
+ 1:   60 [0000]                          - // We have 4 possible rotation values, 0..3, with each incrmenet being a 90 degree clockwise rotation.
+ 1:   61 [0000]                          - //
+ 1:   62 [0000]                          - // For each tetromino type we have we have sets definining their cell occupancies for each possible
+ 1:   63 [0000]                          - // offset and rotation.
+ 1:   64 [0000]                          - // This is done by 4 16 bit words with set bits representing cell occupancy. There are 4 words as a
+ 1:   65 [0000]                          - // tetromino may be upto 4 cells deep.
+ 1:   66 [0000]                          - // A legal move can therefore be determined by looking for any clashes between the cell pattern for
+ 1:   67 [0000]                          - // the tetromino (for offset & rotation) against the board from the y position of the tetromino.
+ 1:   68 [0000]                          - // These cell patterns are stored in tables with the name (?)_board_cell_sets, a table for each
+ 1:   69 [0000]                          - // teromiono type.
+ 1:   70 [0000]                          - //
+ 1:   71 [0000]                          - // For display each board cell maps to a 3x3 bit (pixel) block within the internal RAM.
+ 1:   72 [0000]                          - // In the x dimension the middle 10 playable cells (3..12) map to pixels 1..30.
+ 1:   73 [0000]                          - // So cell x maps to pixels 3*(x-3)+1..3*(x-3)+3.
+ 1:   74 [0000]                          - // In the Y direction the middle 10 playable cells (3..22) map to pixels 3..62
+ 1:   75 [0000]                          - // So cell y maps to pixels 3*(y-3)+3..3*(y-3)+5
+ 1:   76 [0000]                          - // These display patterns are stored in tables with the name (?)_display_pattern_sets, a table for each
+ 1:   77 [0000]                          - // teromiono type.
+ 1:   78 [0000]                          - //
+ 1:   79 [0000]                          - // We have 2 possible instances of a teromino.
+ 1:   80 [0000]                          - // CURRENT  : At the start of a "move" this holds the current state of the falling tet. We manipulate this with
+ 1:   81 [0000]                          - //            speculative moves to check for legaility before accepting a move.
+ 1:   82 [0000]                          - // PREVIOUS : This receives a copy of CURRENT at the start of a move so that of if we do accept a move we
+ 1:   83 [0000]                          - //            can remeber where we were in order to remove the display
+ 1:   84 [0000]                          - 
+ 1:   85 [0000]                          - // *************************************
+ 1:   86 [0000]                          - // Start with shared definitions...
+ 2:    0 [0000]                          - include "Megaprocessor_defs.asm";
+ 2:    2 [0000]                          - // ===============================================================
+ 2:    3 [0000]                          - // 
+ 2:    4 [0000]                          - // Megaprocessor
+ 2:    5 [0000]                          - // =============
+ 2:    6 [0000]                          - // This file holds definitions useful for writing assembler
+ 2:    7 [0000]                          - // programs for the Megaprocessor.
+ 2:    8 [0000]                          - //
+ 2:    9 [0000]                          - // This version : 15th May 2016
+ 2:   10 [0000]                          - //
+ 2:   11 [0000]                          - // ================================================================
+ 2:   12 [0000]                          - //
+ 2:   13 [0000]                          - // Coding
+ 2:   14 [0000]                          - // =======
+ 2:   15 [0000]                          - // definition for interrupt enable bit
+ 2:   15 [0000]                          - PS_INT_ENABLE_BIT               equ     0x01;
+ 2:   17 [0000]                          - 
+ 2:   18 [0000]                          - // ================================================================
+ 2:   19 [0000]                          - //
+ 2:   20 [0000]                          - // To handle the 256 bytes of RAM built from discrete components:
+ 2:   20 [0000]                          - INT_RAM_START                   equ     0xA000;
+ 2:   21 [0000]                          - INT_RAM_LEN                     equ     0x0100;
+ 2:   23 [0000]                          - 
+ 2:   23 [0000]                          - INT_RAM_BYTES_ACROSS            equ     4;
+ 2:   24 [0000]                          - INT_RAM_BYTES_HEIGHT_AS_SHIFT   equ     6;
+ 2:   25 [0000]                          - INT_RAM_BYTES_HEIGHT            equ     64;// 1 << INT_RAM_BYTES_HEIGHT_AS_SHIFT
+ 2:   27 [0000]                          - 
+ 2:   28 [0000]                          - // ================================================================
+ 2:   29 [0000]                          - //
+ 2:   30 [0000]                          - // To handle the peripherals:
+ 2:   30 [0000]                          - PERIPHERALS_BASE                equ     0x8000;
+ 2:   31 [0000]                          - TIMER_BASE                      equ     PERIPHERALS_BASE + 0x00;
+ 2:   32 [0000]                          - UART_BASE                       equ     PERIPHERALS_BASE + 0x10;
+ 2:   33 [0000]                          - INTERRUPT_BASE                  equ     PERIPHERALS_BASE + 0x20;
+ 2:   34 [0000]                          - GEN_IO_BASE                     equ     PERIPHERALS_BASE + 0x30;
+ 2:   36 [0000]                          - 
+ 2:   37 [0000]                          - // register locations for the GPIO...
+ 2:   37 [0000]                          - GEN_IO_OUTPUT                   equ     GEN_IO_BASE + 0;
+ 2:   38 [0000]                          - GEN_IO_INPUT                    equ     GEN_IO_BASE + 2;
+ 2:   39 [0000]                          - GEN_IO_CTR                      equ     GEN_IO_BASE + 4;
+ 2:   41 [0000]                          - 
+ 2:   42 [0000]                          - // register locations for the Timer...
+ 2:   42 [0000]                          - TIME_BLK_COUNTER                equ     TIMER_BASE + 0x00;
+ 2:   43 [0000]                          - TIME_BLK_TIMER                  equ     TIMER_BASE + 0x02;
+ 2:   44 [0000]                          - TIME_BLK_TIMER_CTRL             equ     TIMER_BASE + 0x04;
+ 2:   46 [0000]                          - // bit definitions for timer control register
+ 2:   46 [0000]                          - TIME_BLK_TIMER_CTRL_EN_TIMER    equ     0x01;
+ 2:   47 [0000]                          - TIME_BLK_TIMER_CTRL_CLR_COUNT   equ     0x02;
+ 2:   48 [0000]                          - TIME_BLK_TIMER_CTRL_CLR_TIMER   equ     0x04;
+ 2:   50 [0000]                          - 
+ 2:   51 [0000]                          - // masks for selecting switch value on Venom Arcade Stick
+ 2:   52 [0000]                          - // (Switches are HIGH by "default", and go LOW on being pressed).
+ 2:   52 [0000]                          - IO_SWITCH_FLAG_UP               EQU     0x0001;
+ 2:   53 [0000]                          - IO_SWITCH_FLAG_DOWN             EQU     0x0002;
+ 2:   54 [0000]                          - IO_SWITCH_FLAG_LEFT             EQU     0x0004;
+ 2:   55 [0000]                          - IO_SWITCH_FLAG_RIGHT            EQU     0x0008;
+ 2:   56 [0000]                          - IO_SWITCH_FLAG_SQUARE           EQU     0x0010;
+ 2:   57 [0000]                          - IO_SWITCH_FLAG_TRIANGLE         EQU     0x0020;
+ 2:   58 [0000]                          - IO_SWITCH_FLAG_CIRCLE           EQU     0x0040;
+ 2:   59 [0000]                          - IO_SWITCH_FLAG_CROSS            EQU     0x0080;
+ 2:   60 [0000]                          - IO_SWITCH_FLAG_L1               EQU     0x0100;
+ 2:   61 [0000]                          - IO_SWITCH_FLAG_L2               EQU     0x0200;
+ 2:   62 [0000]                          - IO_SWITCH_FLAG_R1               EQU     0x0400;
+ 2:   63 [0000]                          - IO_SWITCH_FLAG_R2               EQU     0x0800;
+ 2:   65 [0000]                          - 
+ 2:   66 [0000]                          - // register locations for the Interrupt controller...
+ 2:   66 [0000]                          - INTERRUPT_SOURCE                EQU     INTERRUPT_BASE + 0x00;
+ 2:   67 [0000]                          - INTERRUPT_MASK                  EQU     INTERRUPT_BASE + 0x01;
+ 2:   69 [0000]                          - 
+ 2:   70 [0000]                          - // interrupt souurce enable/value bit masks
+ 2:   70 [0000]                          - INTERRUPT_BIT_USER              EQU     0x01;
+ 2:   71 [0000]                          - INTERRUPT_BIT_UART_SPACE        EQU     0x02;
+ 2:   72 [0000]                          - INTERRUPT_BIT_UART_RX_DATA      EQU     0x04;
+ 2:   73 [0000]                          - INTERRUPT_BIT_TIMER             EQU     0x08;
+ 2:   74 [0000]                          - INTERRUPT_BIT_COUNTER           EQU     0x10;
+ 2:   75 [0000]                          - INTERRUPT_BIT_INPUT_CHANGE      EQU     0x20;
+                         - 
+ 1:   88 [0000]                          - 
+ 1:   89 [0000]                          - // *************************************
+ 1:   90 [0000]                          - // tables and variables....
+ 1:   90 [0010]                          -         org 0x10;
+ 1:   92 [0010]                          -     
+ 1:   93 [0010]                          - board_cell_sets:
+ 1:   93 [0010] 1B 04                    -         dw      I_board_cell_sets;
+ 1:   94 [0012] BB 05                    -         dw      O_board_cell_sets;
+ 1:   95 [0014] 5B 07                    -         dw      T_board_cell_sets;
+ 1:   96 [0016] FB 08                    -         dw      S_board_cell_sets;
+ 1:   97 [0018] 9B 0A                    -         dw      Z_board_cell_sets;
+ 1:   98 [001A] 3B 0C                    -         dw      J_board_cell_sets;
+ 1:   99 [001C] DB 0D                    -         dw      L_board_cell_sets;
+ 1:  101 [001E]                          - 
+ 1:  102 [001E]                          - display_pattern_sets:
+ 1:  102 [001E] BC 0F                    -         dw      I_display_pattern_sets;
+ 1:  103 [0020] 5C 11                    -         dw      O_display_pattern_sets;
+ 1:  104 [0022] FC 12                    -         dw      T_display_pattern_sets;
+ 1:  105 [0024] 9C 14                    -         dw      S_display_pattern_sets;
+ 1:  106 [0026] 3C 16                    -         dw      Z_display_pattern_sets;
+ 1:  107 [0028] DC 17                    -         dw      J_display_pattern_sets;
+ 1:  108 [002A] 7C 19                    -         dw      L_display_pattern_sets;
+ 1:  110 [002C]                          - 
+ 1:  111 [002C]                          - // We need a structure to hold data for a tetromino
+ 1:  112 [002C]                          - 
+ 1:  112 [002C]                          - INITIAL_X                       equ     8;
+ 1:  113 [002C]                          - INITIAL_Y                       equ     3;
+ 1:  114 [002C]                          - FULL_BOARD_SIZE                 equ     26*2;
+ 1:  115 [002C]                          - FULL_ROW_MASK                   equ     0xFFFF;
+ 1:  116 [002C]                          - N_FULL_ROW_CHECK                equ     20;
+ 1:  117 [002C]                          - START_FULL_ROW_CHECK            equ     the_board + INITIAL_Y*2;
+ 1:  118 [002C]                          - BOARD_WALLS                     equ     0xE007;
+ 1:  119 [002C]                          - FIRST_BOARD_POSN                equ     START_FULL_ROW_CHECK;
+ 1:  120 [002C]                          - FIRST_DISPLAY_POSN              equ     INT_RAM_START + (3 - 3*INITIAL_Y)*INT_RAM_BYTES_ACROSS;
+ 1:  121 [002C]                          - FIRST_DISPLAY_ADDRESS           equ     INT_RAM_START + (3)*INT_RAM_BYTES_ACROSS;
+ 1:  123 [002C]                          - 
+ 1:  124 [002C]                          - // put tetromino data structure on simple addresses so we can look at it easily in the simulator
+ 1:  124 [0040]                          -                                 org     0x40;
+ 1:  125 [0040] 00                       - current_type:                   db;
+ 1:  126 [0041] 00 00                    - current_display_pattern_set:    dw;
+ 1:  127 [0043] 00 00                    - current_cell_pattern_set:       dw;
+ 1:  128 [0045] 00                       - current_rotn:                   db;
+ 1:  129 [0046] 00 00                    - current_display_pattern:        dw;
+ 1:  130 [0048] 00 00                    - current_display_posn_biased:    dw;
+ 1:  131 [004A] 00 00                    - current_display_posn_raw:       dw;
+ 1:  132 [004C] 00                       - current_X:                      db;
+ 1:  133 [004D] 00                       - current_Y:                      db;
+ 1:  134 [004E] 00 00                    - current_cell_pattern:           dw;
+ 1:  135 [0050] 00 00                    - current_board_posn:             dw;
+ 1:  137 [0052]                          - 
+ 1:  138 [0052]                          - // need to record a few elements of a tet so can delete its previous display
+ 1:  138 [0052] 00                       - prev_rotn:                      db;    //    <<<--<<<<< these fields must be same order/size as current
+ 1:  139 [0053] 00 00                    - prev_display_pattern:           dw;    //    <<<--<<<<< 
+ 1:  140 [0055] 00 00                    - prev_display_posn_biased:       dw;    //    <<<--<<<<< 
+ 1:  141 [0057] 00 00                    - prev_display_posn_raw:          dw;    //    <<<--<<<<< 
+ 1:  142 [0059] 00                       - prev_x:                         db;    //    <<<--<<<<< 
+ 1:  143 [005A]                          - tet_move_data_len               equ 8;
+ 1:  145 [005A]                          - 
+ 1:  145 [005A] 00 00 00 00 00 00 00 00  - the_board:                      ds       FULL_BOARD_SIZE;
+ 1:  145 [0062] 00 00 00 00 00 00 00 00  - 
+ 1:  145 [006A] 00 00 00 00 00 00 00 00  - 
+ 1:  145 [0072] 00 00 00 00 00 00 00 00  - 
+ 1:  145 [007A] 00 00 00 00 00 00 00 00  - 
+ 1:  145 [0082] 00 00 00 00 00 00 00 00  - 
+ 1:  145 [008A] 00 00 00 00              - 
+ 1:  147 [008E]                          - 
+ 1:  148 [008E]                          - 
+ 1:  148 [008E] 00                       - game_over:                      db;
+ 1:  149 [008F] 00 00                    - last_down_time:                 dw;
+ 1:  150 [0091] 00 00                    - last_key_time:                  dw;
+ 1:  151 [0093] 00 00                    - prev_key:                       dw;
+ 1:  153 [0095]                          - 
+ 1:  154 [0095]                          - 
+ 1:  155 [0095]                          - 
+ 1:  155 [0095]                          - MOVE_INTERVAL                   equ     100; // ??
+ 1:  156 [0095]                          - KEY_REPEAT_TIME                 equ     100; // ??
+ 1:  158 [0095]                          - 
+ 1:  158 [0095]                          - FLAG_START                      equ     IO_SWITCH_FLAG_R1;
+ 1:  160 [0095]                          - 
+ 1:  161 [0095]                          - // **************************************
+ 1:  161 [0095]                          - end_of_variables    equ $;
+ 1:  163 [0095]                          - 
+ 1:  164 [0095]                          - // **************************************
+ 1:  165 [0095]                          - // vectors
+ 1:  165 [0000]                          -             org  0;
+ 1:  166 [0000] F3 95 00                 - reset:      jmp    start;
+ 1:  167 [0003] FF                       -             nop;
+ 1:  168 [0004] C7                       - ext_int:    reti;
+ 1:  169 [0005] FF                       -             nop;
+ 1:  170 [0006] FF                       -             nop;
+ 1:  171 [0007] FF                       -             nop;        
+ 1:  172 [0008] C7                       - div_zero:   reti;
+ 1:  173 [0009] FF                       -             nop;
+ 1:  174 [000A] FF                       -             nop;
+ 1:  175 [000B] FF                       -             nop;        
+ 1:  176 [000C] C7                       - illegal:    reti;
+ 1:  177 [000D] FF                       -             nop;
+ 1:  178 [000E] FF                       -             nop;
+ 1:  179 [000F] FF                       -             nop;
+ 1:  181 [0010]                          - 
+ 1:  182 [0010]                          - // ********************************************
+ 1:  183 [0010]                          - // The program....            
+ 1:  183 [0095]                          -         org     end_of_variables;
+ 1:  185 [0095]                          - start:
+ 1:  186 [0095]                          -         // give ourselves a stack...
+ 1:  186 [0095] D0 FF 7F                 -         ld.w    r0,#0x7FFF;
+ 1:  187 [0098] F1                       -         move    sp,r0;
+ 1:  189 [0099]                          -         
+ 1:  189 [0099] CF F5 00                 -         jsr     init_board;
+ 1:  191 [009C]                          - 
+ 1:  192 [009C]                          - main_loop:
+ 1:  192 [009C] CF BC 00                 -         jsr     play_game;
+ 1:  194 [009F]                          -         
+ 1:  194 [009F] D2 DB 03                 -         ld.w    r2,#text_game;
+ 1:  195 [00A2] D3 28 A0                 -         ld.w    r3,#INT_RAM_START + 10*INT_RAM_BYTES_ACROSS;
+ 1:  196 [00A5] D4 10                    -         ld.b    r0,#16;
+ 1:  198 [00A7]                          -     ml_1:
+ 1:  198 [00A7] 91                       -         ld.w    r1,(r2++);
+ 1:  199 [00A8] 9B                       -         st.w    (r3++),r1;
+ 1:  200 [00A9] 5C                       -         dec     r0;
+ 1:  201 [00AA] E6 FB                    -         bne     ml_1;
+ 1:  202 [00AC] D2 FB 03                 -         ld.w    r2,#text_over;
+ 1:  203 [00AF] D3 50 A0                 -         ld.w    r3,#INT_RAM_START + 20*INT_RAM_BYTES_ACROSS;
+ 1:  204 [00B2] D4 10                    -         ld.b    r0,#16;
+ 1:  206 [00B4]                          -     ml_2:
+ 1:  206 [00B4] 91                       -         ld.w    r1,(r2++);
+ 1:  207 [00B5] 9B                       -         st.w    (r3++),r1;
+ 1:  208 [00B6] 5C                       -         dec     r0;
+ 1:  209 [00B7] E6 FB                    -         bne     ml_2;
+ 1:  211 [00B9]                          -         
+ 1:  211 [00B9] F3 9C 00                 -         jmp     main_loop;
+ 1:  213 [00BC]                          - 
+ 1:  214 [00BC]                          - // *******************************************************
+ 1:  215 [00BC]                          - // The game loop consists simply of checking for a key press and then
+ 1:  216 [00BC]                          - // moving a teromino down if the drop time has elapsed
+ 1:  217 [00BC]                          - play_game:
+ 1:  217 [00BC] CF E1 00                 -     jsr     start_game;
+ 1:  219 [00BF]                          -     
+ 1:  220 [00BF]                          - game_loop:
+ 1:  221 [00BF]                          -     // Key checking
+ 1:  221 [00BF] CF 9A 01                 -     jsr     check_key;
+ 1:  223 [00C2]                          -     // possible for game to end if do a drop and then next tet causes game end
+ 1:  223 [00C2] B4 8E 00                 -     ld.b    r0,game_over;
+ 1:  224 [00C5] E7 01                    -     beq     gl_1;
+ 1:  225 [00C7] C6                       -     ret;
+ 1:  227 [00C8]                          -     
+ 1:  228 [00C8]                          - gl_1:
+ 1:  229 [00C8]                          -     // drop the Tetromino if enough time has passed since the last drop
+ 1:  229 [00C8] B1 8F 00                 -     ld.w    r1,last_down_time;
+ 1:  230 [00CB] D0 64 00                 -     ld.w    r0,#MOVE_INTERVAL;
+ 1:  231 [00CE] 41                       -     add     r1,r0;
+ 1:  232 [00CF] B0 00 80                 -     ld.w    r0,TIME_BLK_COUNTER;
+ 1:  233 [00D2] 74                       -     cmp     r0,r1;
+ 1:  234 [00D3] EB EA                    -     bmi     game_loop;
+ 1:  236 [00D5]                          -     
+ 1:  236 [00D5] B8 8F 00                 -     st.w    last_down_time,r0;
+ 1:  237 [00D8] CF 7B 01                 -     jsr     move_tet_down;
+ 1:  239 [00DB]                          -     
+ 1:  239 [00DB] B4 8E 00                 -     ld.b    r0,game_over;
+ 1:  240 [00DE] E7 DF                    -     beq     game_loop;
+ 1:  242 [00E0]                          -     
+ 1:  242 [00E0] C6                       -     ret;
+ 1:  244 [00E1]                          -     
+ 1:  245 [00E1]                          - // *******************************************************
+ 1:  246 [00E1]                          - start_game:
+ 1:  247 [00E1]                          -     
+ 1:  247 [00E1] CF 28 01                 -     jsr     wait_for_start;
+ 1:  249 [00E4]                          -     
+ 1:  249 [00E4] CF F5 00                 -     jsr     init_board;
+ 1:  251 [00E7]                          -     
+ 1:  252 [00E7]                          -     // init state variables....
+ 1:  252 [00E7] 20                       -     clr     r0;
+ 1:  253 [00E8] BC 8E 00                 -     st.b    game_over,r0;
+ 1:  254 [00EB] B8 93 00                 -     st.w    prev_key,r0;
+ 1:  255 [00EE] B0 00 80                 -     ld.w    r0,TIME_BLK_COUNTER;
+ 1:  256 [00F1] B8 8F 00                 -     st.w    last_down_time,r0;
+ 1:  258 [00F4]                          -     
+ 1:  258 [00F4] C6                       -     ret;
+ 1:  260 [00F5]                          - 
+ 1:  261 [00F5]                          - // *******************************************************
+ 1:  262 [00F5]                          - // For the disolay we want to clear it, and then have a one opixel
+ 1:  263 [00F5]                          - // wide border on the sides and bottom.
+ 1:  264 [00F5]                          - // For the board we want it empty , but with the walls and bottom set.
+ 1:  265 [00F5]                          - // clear memory and set up the board
+ 1:  266 [00F5]                          - 
+ 1:  267 [00F5]                          - init_board:
+ 1:  268 [00F5]                          -     // clear board... clear middle, 3 bit wide set border
+ 1:  268 [00F5] D2 5A 00                 -     ld.w    r2,#the_board;
+ 1:  269 [00F8] D0 07 E0                 -     ld.w    r0,#BOARD_WALLS;
+ 1:  270 [00FB] D5 17                    -     ld.b    r1,#23;
+ 1:  272 [00FD]                          - init_1:
+ 1:  272 [00FD] 98                       -     st.w    (r2++),r0;
+ 1:  273 [00FE] 5D                       -     dec     r1;
+ 1:  274 [00FF] E6 FC                    -     bne     init_1;
+ 1:  275 [0101] D0 FF FF                 -     ld.w    r0,#0xFFFF;
+ 1:  276 [0104] 98                       -     st.w    (r2++),r0;
+ 1:  277 [0105] 98                       -     st.w    (r2++),r0;
+ 1:  278 [0106] 98                       -     st.w    (r2++),r0;
+ 1:  280 [0107]                          - 
+ 1:  281 [0107]                          -     // draw the display
+ 1:  282 [0107]                          -     // ==============
+ 1:  282 [0107] 20                       -     clr     r0;
+ 1:  283 [0108] D2 00 A0                 -     ld.w    r2,#INT_RAM_START;
+ 1:  284 [010B] 98                       -     st.w    (r2++),r0;
+ 1:  285 [010C] 98                       -     st.w    (r2++),r0;
+ 1:  286 [010D] 98                       -     st.w    (r2++),r0;
+ 1:  287 [010E] 98                       -     st.w    (r2++),r0;
+ 1:  288 [010F] 98                       -     st.w    (r2++),r0;
+ 1:  289 [0110] 98                       -     st.w    (r2++),r0;
+ 1:  290 [0111] D1 3C 00                 -     ld.w    r1,#60;
+ 1:  292 [0114]                          - clr_loop:
+ 1:  292 [0114] D0 01 00                 -     ld.w    r0,#0x0001;
+ 1:  293 [0117] 98                       -     st.w    (r2++),r0;
+ 1:  294 [0118] D0 00 80                 -     ld.w    r0,#0x8000;
+ 1:  295 [011B] 98                       -     st.w    (r2++),r0;
+ 1:  296 [011C] 5D                       -     dec     r1;
+ 1:  297 [011D] E6 F5                    -     bne     clr_loop;
+ 1:  299 [011F]                          -     
+ 1:  299 [011F] D0 FF FF                 -     ld.w    r0,#0xFFFF;
+ 1:  300 [0122] 98                       -     st.w    (r2++),r0;
+ 1:  301 [0123] 98                       -     st.w    (r2++),r0;
+ 1:  303 [0124]                          - 
+ 1:  303 [0124] CF 38 01                 -     jsr     create_next_tet;
+ 1:  305 [0127]                          - 
+ 1:  305 [0127] C6                       -     ret;
+ 1:  307 [0128]                          - 
+ 1:  308 [0128]                          - // *******************************************************
+ 1:  309 [0128]                          - // looking for an up, so must first wait for it being down
+ 1:  310 [0128]                          - wait_for_start:
+ 1:  310 [0128] D1 00 04                 -     ld.w    r1, #FLAG_START;
+ 1:  312 [012B]                          - wfs_1:
+ 1:  312 [012B] B0 32 80                 -     ld.w    r0, GEN_IO_INPUT;
+ 1:  313 [012E] 14                       -     and     r0,r1;
+ 1:  314 [012F] E6 FA                    -     bne     wfs_1;
+ 1:  316 [0131]                          -     
+ 1:  317 [0131]                          -     // it's down, now wait for an up
+ 1:  318 [0131]                          - wfs_2:
+ 1:  318 [0131] B0 32 80                 -     ld.w    r0, GEN_IO_INPUT;
+ 1:  319 [0134] 14                       -     and     r0,r1;
+ 1:  320 [0135] E7 FA                    -     beq     wfs_2;
+ 1:  322 [0137]                          -     
+ 1:  322 [0137] C6                       -     ret;
+ 1:  324 [0138]                          -     
+ 1:  325 [0138]                          - // *******************************************************
+ 1:  326 [0138]                          - // cretate a random tetromino in CURRENT.
+ 1:  327 [0138]                          - create_next_tet:
+ 1:  328 [0138]                          -     // get some random numbers based on time...
+ 1:  329 [0138]                          -     // After div remainder is in R3 quotient is in R2
+ 1:  329 [0138] B0 00 80                 -     ld.w    r0,TIME_BLK_COUNTER;
+ 1:  330 [013B] D1 07 00                 -     ld.w    r1,#7;
+ 1:  331 [013E] FA                       -     divu;
+ 1:  332 [013F] D4 03                    -     ld.b    r0,#3;
+ 1:  333 [0141] 12                       -     and     r2,r0;
+ 1:  334 [0142] BE 45 00                 -     st.b    current_rotn,r2;
+ 1:  335 [0145] BF 40 00                 -     st.b    current_type,r3;
+ 1:  337 [0148]                          -     
+ 1:  338 [0148]                          -     // must now set up the base data pointers we need on the basis of the tet type
+ 1:  338 [0148] 4F                       -     add     r3,r3; // make word offset
+ 1:  339 [0149] D2 10 00                 -     ld.w    r2,#board_cell_sets;
+ 1:  340 [014C] 4E                       -     add     r2,r3;
+ 1:  341 [014D] 80                       -     ld.w    r0,(r2);
+ 1:  342 [014E] B8 43 00                 -     st.w    current_cell_pattern_set,r0;
+ 1:  343 [0151] D2 1E 00                 -     ld.w    r2,#display_pattern_sets;
+ 1:  344 [0154] 4E                       -     add     r2,r3;
+ 1:  345 [0155] 80                       -     ld.w    r0,(r2);
+ 1:  346 [0156] B8 41 00                 -     st.w    current_display_pattern_set,r0;
+ 1:  348 [0159]                          -     
+ 1:  349 [0159]                          -     // set the initial X,Y
+ 1:  349 [0159] D4 08                    -     ld.b    r0,#INITIAL_X;
+ 1:  350 [015B] BC 4C 00                 -     st.b    current_X,r0;
+ 1:  351 [015E] D4 03                    -     ld.b    r0,#INITIAL_Y;
+ 1:  352 [0160] BC 4D 00                 -     st.b    current_Y,r0;
+ 1:  354 [0163]                          -     
+ 1:  355 [0163]                          -     // finish off pointer calc
+ 1:  355 [0163] CF 29 03                 -     jsr     calc_pointers;
+ 1:  357 [0166]                          -     
+ 1:  358 [0166]                          -     // and draw it
+ 1:  358 [0166] D3 45 00                 -     ld.w    r3,#current_rotn;
+ 1:  359 [0169] CF 85 03                 -     jsr     draw_tetromino;
+ 1:  361 [016C]                          -     
+ 1:  362 [016C]                          -     // at start of move previous should match current
+ 1:  362 [016C] D2 45 00                 -     ld.w    r2,#current_rotn;
+ 1:  363 [016F] D3 52 00                 -     ld.w    r3,#prev_rotn;
+ 1:  364 [0172] 90                       -     ld.w    r0,(r2++);
+ 1:  365 [0173] 9A                       -     st.w    (r3++),R0;
+ 1:  366 [0174] 90                       -     ld.w    r0,(r2++);
+ 1:  367 [0175] 9A                       -     st.w    (r3++),R0;
+ 1:  368 [0176] 90                       -     ld.w    r0,(r2++);
+ 1:  369 [0177] 9A                       -     st.w    (r3++),R0;
+ 1:  370 [0178] 90                       -     ld.w    r0,(r2++);
+ 1:  371 [0179] 9A                       -     st.w    (r3++),R0;
+ 1:  373 [017A]                          -     
+ 1:  373 [017A] C6                       -     ret;
+ 1:  375 [017B]                          -     
+ 1:  376 [017B]                          - // *******************************************************
+ 1:  377 [017B]                          - // Move the falling tetromino down one line.
+ 1:  378 [017B]                          - // If a collision would result then undo the move and handle a landing.
+ 1:  379 [017B]                          - //R0 return 1 if landed, 0 otherwise
+ 1:  380 [017B]                          - //****************************************************************************
+ 1:  381 [017B]                          - move_tet_down:
+ 1:  382 [017B]                          - 
+ 1:  383 [017B]                          -     // start by assuming we can move it down....
+ 1:  383 [017B] B4 4D 00                 -     ld.b    r0,current_Y;
+ 1:  384 [017E] 54                       -     inc     r0;
+ 1:  385 [017F] BC 4D 00                 -     st.b    current_Y,r0;
+ 1:  387 [0182]                          - 
+ 1:  387 [0182] CF 08 03                 -     jsr     test_collision;
+ 1:  388 [0185] 10                       -     test    r0;
+ 1:  389 [0186] E6 04                    -     bne     we_have_landed;
+ 1:  390 [0188] CF 6A 03                 -     jsr     move_tetromino;
+ 1:  391 [018B] C6                       -     ret;
+ 1:  393 [018C]                          - 
+ 1:  394 [018C]                          - we_have_landed:
+ 1:  395 [018C]                          -     // undo the failed drop
+ 1:  395 [018C] B4 4D 00                 -     ld.b    r0,current_Y;
+ 1:  396 [018F] 5C                       -     dec     r0;
+ 1:  397 [0190] BC 4D 00                 -     st.b    current_Y,r0;
+ 1:  398 [0193] CF 29 03                 -     jsr     calc_pointers;
+ 1:  400 [0196]                          -     
+ 1:  401 [0196]                          -     // move Tet. onto board and remove rows
+ 1:  401 [0196] CF 84 02                 -     jsr     tet_landed;
+ 1:  403 [0199]                          -     
+ 1:  403 [0199] C6                       -     ret;
+ 1:  405 [019A]                          -     
+ 1:  406 [019A]                          - 
+ 1:  407 [019A]                          - // *******************************************************
+ 1:  408 [019A]                          - check_key:
+ 1:  408 [019A] CF CA 01                 -     jsr     extract_key;
+ 1:  409 [019D] 10                       -     test    r0;
+ 1:  410 [019E] E6 04                    -     bne     key_was_pressed;
+ 1:  411 [01A0] B8 93 00                 -     st.w    prev_key,r0;
+ 1:  412 [01A3] C6                       -     ret;
+ 1:  414 [01A4]                          - 
+ 1:  415 [01A4]                          - key_was_pressed:
+ 1:  415 [01A4] B1 93 00                 -     ld.w    r1,prev_key;
+ 1:  416 [01A7] 74                       -     cmp     r0,r1;
+ 1:  417 [01A8] E6 0E                    -     bne     do_key_press;   // a different key
+ 1:  419 [01AA]                          -     
+ 1:  420 [01AA]                          -     // same key...is it time for auto repeat
+ 1:  420 [01AA] B1 00 80                 -     ld.w    r1,TIME_BLK_COUNTER;
+ 1:  421 [01AD] B2 91 00                 -     ld.w    r2,last_key_time;
+ 1:  422 [01B0] 69                       -     sub     r1,r2;
+ 1:  423 [01B1] D2 64 00                 -     ld.w    r2,#KEY_REPEAT_TIME;
+ 1:  424 [01B4] 79                       -     cmp     r1,r2;
+ 1:  425 [01B5] EA 01                    -     bpl     do_key_press;
+ 1:  426 [01B7] C6                       -     ret;
+ 1:  428 [01B8]                          -     
+ 1:  429 [01B8]                          - do_key_press:
+ 1:  429 [01B8] B8 93 00                 -     st.w    prev_key,r0;
+ 1:  430 [01BB] B1 00 80                 -     ld.w    r1,TIME_BLK_COUNTER;
+ 1:  431 [01BE] B9 91 00                 -     st.w    last_key_time,r1;
+ 1:  432 [01C1] CE                       -     jsr     (r0);
+ 1:  433 [01C2] 10                       -     test    r0;
+ 1:  434 [01C3] E6 01                    -     bne     key_needs_display_update;
+ 1:  435 [01C5] C6                       -     ret;
+ 1:  437 [01C6]                          -     
+ 1:  438 [01C6]                          - key_needs_display_update:
+ 1:  438 [01C6] CF 6A 03                 -     jsr     move_tetromino;
+ 1:  439 [01C9] C6                       -     ret;
+ 1:  441 [01CA]                          - 
+ 1:  442 [01CA]                          - // *******************************************************
+ 1:  443 [01CA]                          - //  output key handler in R0
+ 1:  444 [01CA]                          - extract_key:
+ 1:  444 [01CA] B0 32 80                 -     ld.w    r0,GEN_IO_INPUT;
+ 1:  445 [01CD] D2 FE 01                 -     ld.w    r2,#handle_left;   
+ 1:  446 [01D0] D1 04 00                 -     ld.w    r1, #IO_SWITCH_FLAG_LEFT;
+ 1:  447 [01D3] 11                       -     and     r1,r0;
+ 1:  448 [01D4] E7 26                    -     beq     there_is_a_key;
+ 1:  450 [01D6]                          - 
+ 1:  450 [01D6] D2 14 02                 -     ld.w    r2,#handle_right;   
+ 1:  451 [01D9] D1 08 00                 -     ld.w    r1, #IO_SWITCH_FLAG_RIGHT;
+ 1:  452 [01DC] 11                       -     and     r1,r0;
+ 1:  453 [01DD] E7 1D                    -     beq     there_is_a_key;
+ 1:  455 [01DF]                          - 
+ 1:  455 [01DF] D2 2A 02                 -     ld.w    r2,#handle_rot_left;   
+ 1:  456 [01E2] D1 10 00                 -     ld.w    r1, #IO_SWITCH_FLAG_SQUARE;
+ 1:  457 [01E5] 11                       -     and     r1,r0;
+ 1:  458 [01E6] E7 14                    -     beq     there_is_a_key;
+ 1:  460 [01E8]                          - 
+ 1:  460 [01E8] D2 46 02                 -     ld.w    r2,#handle_rot_right;   
+ 1:  461 [01EB] D1 20 00                 -     ld.w    r1, #IO_SWITCH_FLAG_TRIANGLE;
+ 1:  462 [01EE] 11                       -     and     r1,r0;
+ 1:  463 [01EF] E7 0B                    -     beq     there_is_a_key;
+ 1:  465 [01F1]                          -     
+ 1:  465 [01F1] D2 62 02                 -     ld.w    r2,#handle_drop;   
+ 1:  466 [01F4] D1 00 01                 -     ld.w    r1, #IO_SWITCH_FLAG_L1;
+ 1:  467 [01F7] 11                       -     and     r1,r0;
+ 1:  468 [01F8] E7 02                    -     beq     there_is_a_key;
+ 1:  470 [01FA]                          -     
+ 1:  470 [01FA] 20                       -     clr     r0;
+ 1:  471 [01FB] C6                       -     ret;
+ 1:  473 [01FC]                          - there_is_a_key:
+ 1:  473 [01FC] 08                       -     move    r0,r2;
+ 1:  474 [01FD] C6                       -     ret;
+ 1:  476 [01FE]                          - 
+ 1:  477 [01FE]                          - // *******************************************************
+ 1:  478 [01FE]                          - // handles return non-0 in R0 if need display update
+ 1:  479 [01FE]                          - handle_left:
+ 1:  479 [01FE] B4 4C 00                 -     ld.b    r0,current_X;
+ 1:  480 [0201] 5C                       -     dec     r0;
+ 1:  481 [0202] BC 4C 00                 -     st.b    current_X,r0;
+ 1:  482 [0205] CF 08 03                 -     jsr     test_collision;
+ 1:  483 [0208] 10                       -     test    r0;
+ 1:  484 [0209] E7 76                    -     beq     handle_key_ok;
+ 1:  486 [020B]                          -     // hit something, undo
+ 1:  486 [020B] B4 4C 00                 -     ld.b    r0,current_X;
+ 1:  487 [020E] 54                       -     inc     r0;
+ 1:  488 [020F] BC 4C 00                 -     st.b    current_X,r0;
+ 1:  489 [0212] 20                       -     clr     r0;
+ 1:  490 [0213] C6                       -     ret;
+ 1:  492 [0214]                          -     
+ 1:  493 [0214]                          - handle_right:
+ 1:  493 [0214] B4 4C 00                 -     ld.b    r0,current_X;
+ 1:  494 [0217] 54                       -     inc     r0;
+ 1:  495 [0218] BC 4C 00                 -     st.b    current_X,r0;
+ 1:  496 [021B] CF 08 03                 -     jsr     test_collision;
+ 1:  497 [021E] 10                       -     test    r0;
+ 1:  498 [021F] E7 60                    -     beq     handle_key_ok;
+ 1:  500 [0221]                          -     // hit something, undo
+ 1:  500 [0221] B4 4C 00                 -     ld.b    r0,current_X;
+ 1:  501 [0224] 5C                       -     dec     r0;
+ 1:  502 [0225] BC 4C 00                 -     st.b    current_X,r0;
+ 1:  503 [0228] 20                       -     clr     r0;
+ 1:  504 [0229] C6                       -     ret;
+ 1:  506 [022A]                          -     
+ 1:  507 [022A]                          - handle_rot_left:
+ 1:  507 [022A] B4 45 00                 -     ld.b    r0,current_rotn;
+ 1:  508 [022D] 5C                       -     dec     r0;
+ 1:  509 [022E] D5 03                    -     ld.b    r1,#3;
+ 1:  510 [0230] 14                       -     and     r0,r1;
+ 1:  511 [0231] BC 45 00                 -     st.b    current_rotn,r0;
+ 1:  512 [0234] CF 08 03                 -     jsr     test_collision;
+ 1:  513 [0237] 10                       -     test    r0;
+ 1:  514 [0238] E7 47                    -     beq     handle_key_ok;
+ 1:  516 [023A]                          -     // hit something, undo
+ 1:  516 [023A] B4 45 00                 -     ld.b    r0,current_rotn;
+ 1:  517 [023D] 54                       -     inc     r0;
+ 1:  518 [023E] D5 03                    -     ld.b    r1,#3;
+ 1:  519 [0240] 14                       -     and     r0,r1;
+ 1:  520 [0241] BC 45 00                 -     st.b    current_rotn,r0;
+ 1:  521 [0244] 20                       -     clr     r0;
+ 1:  522 [0245] C6                       -     ret;
+ 1:  524 [0246]                          -     
+ 1:  525 [0246]                          - handle_rot_right:
+ 1:  525 [0246] B4 45 00                 -     ld.b    r0,current_rotn;
+ 1:  526 [0249] 54                       -     inc     r0;
+ 1:  527 [024A] D5 03                    -     ld.b    r1,#3;
+ 1:  528 [024C] 14                       -     and     r0,r1;
+ 1:  529 [024D] BC 45 00                 -     st.b    current_rotn,r0;
+ 1:  530 [0250] CF 08 03                 -     jsr     test_collision;
+ 1:  531 [0253] 10                       -     test    r0;
+ 1:  532 [0254] E7 2B                    -     beq     handle_key_ok;
+ 1:  534 [0256]                          -     // hit something, undo
+ 1:  534 [0256] B4 45 00                 -     ld.b    r0,current_rotn;
+ 1:  535 [0259] 5C                       -     dec     r0;
+ 1:  536 [025A] D5 03                    -     ld.b    r1,#3;
+ 1:  537 [025C] 14                       -     and     r0,r1;
+ 1:  538 [025D] BC 45 00                 -     st.b    current_rotn,r0;
+ 1:  539 [0260] 20                       -     clr     r0;
+ 1:  540 [0261] C6                       -     ret;
+ 1:  542 [0262]                          -     
+ 1:  543 [0262]                          -     // drop, drop till we hit something
+ 1:  544 [0262]                          - handle_drop:
+ 1:  544 [0262] B4 4D 00                 -     ld.b    r0,current_Y;
+ 1:  545 [0265] 54                       -     inc     r0;
+ 1:  546 [0266] BC 4D 00                 -     st.b    current_Y,r0;
+ 1:  547 [0269] CF 08 03                 -     jsr     test_collision;
+ 1:  548 [026C] 10                       -     test    r0;
+ 1:  549 [026D] E7 F3                    -     beq     handle_drop;
+ 1:  551 [026F]                          -     
+ 1:  552 [026F]                          - handle_drop_landed:
+ 1:  553 [026F]                          -     // finally hit something, so rewind one
+ 1:  553 [026F] B4 4D 00                 -     ld.b    r0,current_Y;
+ 1:  554 [0272] 5C                       -     dec     r0;
+ 1:  555 [0273] BC 4D 00                 -     st.b    current_Y,r0;
+ 1:  556 [0276] CF 29 03                 -     jsr     calc_pointers; // need the parameters updated...
+ 1:  557 [0279] CF 6A 03                 -     jsr     move_tetromino;    // draw the move...
+ 1:  559 [027C]                          - 
+ 1:  559 [027C] CF 84 02                 -     jsr     tet_landed;       //
+ 1:  560 [027F] 20                       -     clr     r0; // do not need to update display again
+ 1:  561 [0280] C6                       -     ret;
+ 1:  563 [0281]                          - 
+ 1:  564 [0281]                          - handle_key_ok:
+ 1:  564 [0281] D4 01                    -     ld.b    r0,#1;
+ 1:  565 [0283] C6                       -     ret;
+ 1:  567 [0284]                          -     
+ 1:  568 [0284]                          - /*****************************************************************************
+ 1:  569 [0284]                          - * Copy the supplied tetromino into the board and test for completed rows.
+ 1:  570 [0284]                          - * If rows are filled, mark them for deletion, then delete them
+ 1:  571 [0284]                          - *   and update the stats.
+ 1:  572 [0284]                          - *****************************************************************************/
+ 1:  573 [0284]                          -     // move Tet. onto board and remove rows
+ 1:  574 [0284]                          - tet_landed:
+ 1:  575 [0284]                          -     /* Copy the tetromnio into the board */
+ 1:  575 [0284] B2 4E 00                 -     ld.w    r2,current_cell_pattern;
+ 1:  576 [0287] B3 50 00                 -     ld.w    r3,current_board_posn;
+ 1:  578 [028A]                          -     
+ 1:  579 [028A]                          -     // The tetromino may span 4 lines
+ 1:  579 [028A] 90                       -     ld.w    r0,(r2++);
+ 1:  580 [028B] 83                       -     ld.w    r1,(r3);
+ 1:  581 [028C] 34                       -     or      r0,r1;
+ 1:  582 [028D] 9A                       -     st.w    (r3++),r0;
+ 1:  584 [028E]                          -     
+ 1:  584 [028E] 90                       -     ld.w    r0,(r2++);
+ 1:  585 [028F] 83                       -     ld.w    r1,(r3);
+ 1:  586 [0290] 34                       -     or      r0,r1;
+ 1:  587 [0291] 9A                       -     st.w    (r3++),r0;
+ 1:  589 [0292]                          -     
+ 1:  589 [0292] 90                       -     ld.w    r0,(r2++);
+ 1:  590 [0293] 83                       -     ld.w    r1,(r3);
+ 1:  591 [0294] 34                       -     or      r0,r1;
+ 1:  592 [0295] 9A                       -     st.w    (r3++),r0;
+ 1:  594 [0296]                          -     
+ 1:  594 [0296] 90                       -     ld.w    r0,(r2++);
+ 1:  595 [0297] 83                       -     ld.w    r1,(r3);
+ 1:  596 [0298] 34                       -     or      r0,r1;
+ 1:  597 [0299] 9A                       -     st.w    (r3++),r0;
+ 1:  599 [029A]                          -     
+ 1:  600 [029A]                          -     // Now need to remove full rows.....
+ 1:  601 [029A]                          -     // keep checking till none left
+ 1:  602 [029A]                          - full_row_check:
+ 1:  602 [029A] D1 FF FF                 -     ld.w    r1,#FULL_ROW_MASK;
+ 1:  603 [029D] D7 14                    -     ld.b    r3,#N_FULL_ROW_CHECK;
+ 1:  604 [029F] D2 60 00                 -     ld.w    r2,#START_FULL_ROW_CHECK;
+ 1:  606 [02A2]                          - full_row_1:
+ 1:  606 [02A2] 90                       -     ld.w    r0,(r2++);
+ 1:  607 [02A3] 24                       -     xor     r0,r1;
+ 1:  608 [02A4] E7 17                    -     beq     have_full_row;
+ 1:  610 [02A6]                          -     
+ 1:  610 [02A6] 5F                       -     dec     r3;
+ 1:  611 [02A7] E6 F9                    -     bne     full_row_1;
+ 1:  613 [02A9]                          -     
+ 1:  614 [02A9]                          -     //  now get the next Tet and then look to see if game is over
+ 1:  614 [02A9] CF 38 01                 -     jsr     create_next_tet;
+ 1:  616 [02AC]                          - 
+ 1:  616 [02AC] CF 08 03                 -     jsr     test_collision; // if Tet hits immediately then game is over
+ 1:  617 [02AF] E7 05                    -     beq     tet_landed_end;
+ 1:  618 [02B1] D4 01                    -     ld.b    r0,#1;
+ 1:  619 [02B3] BC 8E 00                 -     st.b    game_over,r0;
+ 1:  621 [02B6]                          -         
+ 1:  622 [02B6]                          - tet_landed_end:
+ 1:  623 [02B6]                          -     // reset drop timer
+ 1:  623 [02B6] B0 00 80                 -     ld.w    r0,TIME_BLK_COUNTER;
+ 1:  624 [02B9] B8 8F 00                 -     st.w    last_down_time,r0;
+ 1:  625 [02BC] C6                       -     ret;
+ 1:  627 [02BD]                          - 
+ 1:  628 [02BD]                          - 
+ 1:  629 [02BD]                          -     // full row... remove it
+ 1:  630 [02BD]                          -     // =====================
+ 1:  631 [02BD]                          - have_full_row:
+ 1:  631 [02BD] D4 14                    -     ld.b    r0,#N_FULL_ROW_CHECK; // if the count is now n we must use N - n
+ 1:  632 [02BF] 6C                       -     sub     r0,r3;
+ 1:  633 [02C0] C8                       -     push    r0;     // save count to use later
+ 1:  635 [02C1]                          -     // first work on the board
+ 1:  635 [02C1] E7 24                    -     beq     remove_full_row_4;
+ 1:  636 [02C3] 5A                       -     addq    r2,#-2;    // must undo the post inc on reading the line
+ 1:  637 [02C4] 0B                       -     move    r3,r2;
+ 1:  638 [02C5] 5A                       -     addq    r2,#-2; // r2 will be our src
+ 1:  640 [02C6]                          - remove_full_row_1:
+ 1:  640 [02C6] 81                       -     ld.w    r1,(r2);
+ 1:  641 [02C7] 8B                       -     st.w    (r3),r1;
+ 1:  642 [02C8] 5A                       -     addq    r2,#-2;
+ 1:  643 [02C9] 5B                       -     addq    r3,#-2;
+ 1:  644 [02CA] 5C                       -     dec     r0;
+ 1:  645 [02CB] E6 F9                    -     bne     remove_full_row_1;
+ 1:  647 [02CD]                          -     
+ 1:  648 [02CD]                          -     // now we must clear from the display
+ 1:  648 [02CD] C0                       -     pop     r0;     // lines done, mult by 12 to get offset from display start
+ 1:  649 [02CE] 01                       -     move    r1,r0;
+ 1:  650 [02CF] 06                       -     move    r2,r1;
+ 1:  651 [02D0] 45                       -     add     r1,r1;
+ 1:  652 [02D1] 49                       -     add     r1,r2;   // n_done *3
+ 1:  653 [02D2] 45                       -     add     r1,r1;
+ 1:  654 [02D3] 45                       -     add     r1,r1;  // n_done *12
+ 1:  655 [02D4] D2 16 A0                 -     ld.w    r2,#FIRST_DISPLAY_ADDRESS + 10; //  10 as need end of data for pixel row
+ 1:  656 [02D7] 46                       -     add     r2,r1;  // r2 is dst of pixels (the full line we're clearing)
+ 1:  657 [02D8] 0B                       -     move    r3,r2;
+ 1:  658 [02D9] D5 0C                    -     ld.b    r1,#12;
+ 1:  659 [02DB] 67                       -     sub     r3,r1;  // r3 is src of pixels
+ 1:  661 [02DC]                          - 
+ 1:  662 [02DC]                          -     // must multiply the loop count by 6 as 3 display lines 
+ 1:  663 [02DC]                          -     // of 4 bytes per board row, but we do 2 at a time
+ 1:  663 [02DC] 01                       -     move    r1,r0;
+ 1:  664 [02DD] 40                       -     add     r0,r0;
+ 1:  665 [02DE] 44                       -     add     r0,r1;
+ 1:  666 [02DF] 40                       -     add     r0,r0;
+ 1:  668 [02E0]                          - remove_full_row_3:
+ 1:  668 [02E0] 83                       -     ld.w    r1,(r3);
+ 1:  669 [02E1] 89                       -     st.w    (r2),r1;
+ 1:  670 [02E2] 5A                       -     addq    r2,#-2;
+ 1:  671 [02E3] 5B                       -     addq    r3,#-2;
+ 1:  672 [02E4] 5C                       -     dec     r0;
+ 1:  673 [02E5] E6 F9                    -     bne     remove_full_row_3;
+ 1:  675 [02E7]                          - 
+ 1:  676 [02E7]                          - 
+ 1:  677 [02E7]                          - remove_full_row_4:
+ 1:  678 [02E7]                          -     // and clear top line of board
+ 1:  678 [02E7] D1 07 E0                 -     ld.w    r1,#BOARD_WALLS;
+ 1:  679 [02EA] B9 60 00                 -     st.w    start_full_row_check,r1;
+ 1:  681 [02ED]                          -     // clear top pixel row
+ 1:  681 [02ED] D0 01 00                 -     ld.w    r0,#0x0001;
+ 1:  682 [02F0] B8 0C A0                 -     st.w    FIRST_DISPLAY_ADDRESS +  0,r0;
+ 1:  683 [02F3] B8 10 A0                 -     st.w    FIRST_DISPLAY_ADDRESS +  4,r0;
+ 1:  684 [02F6] B8 14 A0                 -     st.w    FIRST_DISPLAY_ADDRESS +  8,r0;
+ 1:  685 [02F9] D0 00 80                 -     ld.w    r0,#0x8000;
+ 1:  686 [02FC] B8 0E A0                 -     st.w    FIRST_DISPLAY_ADDRESS +  2,r0;
+ 1:  687 [02FF] B8 12 A0                 -     st.w    FIRST_DISPLAY_ADDRESS +  6,r0;
+ 1:  688 [0302] B8 16 A0                 -     st.w    FIRST_DISPLAY_ADDRESS + 10,r0;
+ 1:  690 [0305]                          -     // and then go round again...
+ 1:  690 [0305] F3 9A 02                 -     jmp     full_row_check;
+ 1:  692 [0308]                          -     
+ 1:  693 [0308]                          - // =================================================================
+ 1:  694 [0308]                          - // look to see current trial position of tet will colide with something
+ 1:  695 [0308]                          - // (board has occupied cells for previous tets AND walls and floor)
+ 1:  696 [0308]                          - // Return non-zero in R0 for a collision
+ 1:  697 [0308]                          - test_collision:
+ 1:  698 [0308]                          -     // first calc pointers for trial position
+ 1:  698 [0308] CF 29 03                 -     jsr     calc_pointers;
+ 1:  700 [030B]                          - 
+ 1:  701 [030B]                          -     // look to see if cell pattern for current position overlaps with current board.
+ 1:  701 [030B] B2 4E 00                 -     ld.w    r2,current_cell_pattern;
+ 1:  702 [030E] B3 50 00                 -     ld.w    r3,current_board_posn;
+ 1:  704 [0311]                          -     
+ 1:  704 [0311] 90                       -     ld.w    r0,(r2++);
+ 1:  705 [0312] 93                       -     ld.w    r1,(r3++);
+ 1:  706 [0313] 14                       -     and     r0,r1;
+ 1:  707 [0314] E6 10                    -     bne     is_coll;
+ 1:  708 [0316] 90                       -     ld.w    r0,(r2++);
+ 1:  709 [0317] 93                       -     ld.w    r1,(r3++);
+ 1:  710 [0318] 14                       -     and     r0,r1;
+ 1:  711 [0319] E6 0B                    -     bne     is_coll;
+ 1:  712 [031B] 90                       -     ld.w    r0,(r2++);
+ 1:  713 [031C] 93                       -     ld.w    r1,(r3++);
+ 1:  714 [031D] 14                       -     and     r0,r1;
+ 1:  715 [031E] E6 06                    -     bne     is_coll;
+ 1:  716 [0320] 90                       -     ld.w    r0,(r2++);
+ 1:  717 [0321] 93                       -     ld.w    r1,(r3++);
+ 1:  718 [0322] 14                       -     and     r0,r1;
+ 1:  719 [0323] E6 01                    -     bne     is_coll;
+ 1:  721 [0325]                          -     
+ 1:  722 [0325]                          -     //R0 is clear for no collision
+ 1:  722 [0325] C6                       -     ret;
+ 1:  724 [0326]                          -     
+ 1:  725 [0326]                          - is_coll:
+ 1:  725 [0326] D4 01                    -     ld.b    r0,#1;
+ 1:  726 [0328] C6                       -     ret;
+ 1:  728 [0329]                          -     
+ 1:  729 [0329]                          - // =================================================================
+ 1:  730 [0329]                          -     // calculate (and store) pointers to things of interest for the
+ 1:  731 [0329]                          -     // position of tetromino
+ 1:  732 [0329]                          -     //
+ 1:  733 [0329]                          -     // We can share some of the calculations for indxing into the 
+ 1:  734 [0329]                          -     // cell pattern and board display tables
+ 1:  735 [0329]                          -     // For both the entry we need is table[x*n_rot + rot].
+ 1:  736 [0329]                          -     // for cell patterns each entry is 4 words = 8 bytes long
+ 1:  737 [0329]                          -     // for display patterns they are also 4 words = 8 bytes
+ 1:  738 [0329]                          - calc_pointers:
+ 1:  738 [0329] B7 4C 00                 -     ld.b    r3,current_X;
+ 1:  739 [032C] 4F                       -     add     r3,r3;
+ 1:  740 [032D] 4F                       -     add     r3,r3; // r3 = 4*x
+ 1:  741 [032E] B5 45 00                 -     ld.b    r1,current_rotn;
+ 1:  742 [0331] 47                       -     add     r3,r1;  // r3 = 4*x + rot
+ 1:  744 [0332]                          -     
+ 1:  744 [0332] 4F                       -     add     r3,r3;
+ 1:  745 [0333] 4F                       -     add     r3,r3;
+ 1:  746 [0334] 4F                       -     add     r3,r3;    // r3 now has 8*index
+ 1:  747 [0335] B2 43 00                 -     ld.w    r2,current_cell_pattern_set;
+ 1:  748 [0338] 4E                       -     add     r2,r3;
+ 1:  749 [0339] BA 4E 00                 -     st.w    current_cell_pattern,r2;
+ 1:  751 [033C]                          - 
+ 1:  751 [033C] B2 41 00                 -     ld.w    r2,current_display_pattern_set;
+ 1:  752 [033F] 4E                       -     add     r2,r3;
+ 1:  753 [0340] BA 46 00                 -     st.w    current_display_pattern,r2;
+ 1:  755 [0343]                          - 
+ 1:  755 [0343] B5 4D 00                 -     ld.b    r1,current_Y;
+ 1:  756 [0346] 45                       -     add     r1,r1;      // board is 2 bytes wide
+ 1:  757 [0347] D3 5A 00                 -     ld.w    r3,#the_board;
+ 1:  758 [034A] 4D                       -     add     r1,r3;
+ 1:  759 [034B] B9 50 00                 -     st.w    current_board_posn,r1;
+ 1:  761 [034E]                          -     
+ 1:  762 [034E]                          -     // cells are 3 pixels tall which corresponds to 12 bytes (4 bytes a line)
+ 1:  762 [034E] B5 4D 00                 -     ld.b    r1,current_Y;
+ 1:  763 [0351] 07                       -     move    r3,r1;
+ 1:  764 [0352] 45                       -     add     r1,r1;
+ 1:  765 [0353] 47                       -     add     r3,r1;      // r3 = Y*3
+ 1:  766 [0354] 4F                       -     add     r3,r3;
+ 1:  767 [0355] 4F                       -     add     r3,r3;      // r3 = 12*y
+ 1:  768 [0356] D1 E8 9F                 -     ld.w    r1,#FIRST_DISPLAY_POSN;
+ 1:  769 [0359] 4D                       -     add     r1,r3;
+ 1:  770 [035A] B9 4A 00                 -     st.w    current_display_posn_raw,r1;
+ 1:  771 [035D] B4 4C 00                 -     ld.b    r0,current_X;
+ 1:  772 [0360] D2 AF 0F                 -     ld.w    r2,#display_biases;
+ 1:  773 [0363] 42                       -     add     r2,r0;
+ 1:  774 [0364] 84                       -     ld.b    r0,(r2);
+ 1:  775 [0365] 41                       -     add     r1,r0;
+ 1:  776 [0366] B9 48 00                 -     st.w    current_display_posn_biased,r1;
+ 1:  778 [0369]                          -     
+ 1:  778 [0369] C6                       -     ret;
+ 1:  780 [036A]                          -     
+ 1:  781 [036A]                          - // *******************************************************
+ 1:  782 [036A]                          - // The Tet. has moved
+ 1:  783 [036A]                          - // update display and data structures....
+ 1:  784 [036A]                          - move_tetromino:
+ 1:  785 [036A]                          -     //  delete in old position
+ 1:  785 [036A] D3 52 00                 -     ld.w    r3,#prev_rotn;
+ 1:  786 [036D] CF 85 03                 -     jsr     draw_tetromino;
+ 1:  788 [0370]                          - 
+ 1:  789 [0370]                          -     //  .., and draw in new
+ 1:  789 [0370] D3 45 00                 -     ld.w    r3,#current_rotn;
+ 1:  790 [0373] CF 85 03                 -     jsr     draw_tetromino;
+ 1:  792 [0376]                          -     
+ 1:  793 [0376]                          -     // make copy of pointer/position data ....
+ 1:  793 [0376] D2 45 00                 -     ld.w    r2,#current_rotn;
+ 1:  794 [0379] D3 52 00                 -     ld.w    r3,#prev_rotn;
+ 1:  795 [037C] 90                       -     ld.w    r0,(r2++);
+ 1:  796 [037D] 9A                       -     st.w    (r3++),R0;
+ 1:  797 [037E] 90                       -     ld.w    r0,(r2++);
+ 1:  798 [037F] 9A                       -     st.w    (r3++),R0;
+ 1:  799 [0380] 90                       -     ld.w    r0,(r2++);
+ 1:  800 [0381] 9A                       -     st.w    (r3++),R0;
+ 1:  801 [0382] 90                       -     ld.w    r0,(r2++);
+ 1:  802 [0383] 9A                       -     st.w    (r3++),R0;
+ 1:  804 [0384]                          -     
+ 1:  804 [0384] C6                       -     ret;
+ 1:  806 [0385]                          -     
+ 1:  807 [0385]                          - // *******************************************************
+ 1:  808 [0385]                          - // expect r3 points to descriptor
+ 1:  809 [0385]                          - // draw the tetromino by XORing in a pattern onto the display.
+ 1:  810 [0385]                          - // We use patterns of 4 32 bit words. Each word is applied to 3 lines of the display
+ 1:  811 [0385]                          - draw_tetromino:
+ 1:  811 [0385] 97                       -     ld.b    r1,(r3++);      // get in (and move past rotation)
+ 1:  812 [0386] B4 40 00                 -     ld.b    r0,current_type;
+ 1:  813 [0389] E6 2F                    -     bne     draw_tet_not_0;
+ 1:  814 [038B] D4 04                    -     ld.b    r0,#4;
+ 1:  815 [038D] DD 00                    -     btst    r1,#0;
+ 1:  816 [038F] E6 2B                    -     bne     draw_tet_normal;
+ 1:  818 [0391]                          - 
+ 1:  819 [0391]                          -     //  So here we are dealing with a horizontal I teromino.
+ 1:  820 [0391]                          -     // This works differently from the others as single row, but its full width
+ 1:  821 [0391]                          -     // get the pointers to display position and pattern
+ 1:  821 [0391] 93                       -     ld.w    r1,(r3++);
+ 1:  822 [0392] 93                       -     ld.w    r1,(r3++);  // biased position...discard
+ 1:  823 [0393] 93                       -     ld.w    r1,(r3++);  // raw_position...the one we use
+ 1:  824 [0394] 96                       -     ld.b    r0,(r3++);  // X
+ 1:  825 [0395] 40                       -     add     r0,r0;
+ 1:  826 [0396] 40                       -     add     r0,r0;
+ 1:  827 [0397] D2 7B 0F                 -     ld.w    r2,#horz_I_set;
+ 1:  828 [039A] 42                       -     add     r2,r0;  // points to correct horiz I pattern
+ 1:  829 [039B] 07                       -     move    r3,r1;      // position
+ 1:  830 [039C] D5 0C                    -     ld.b    r1,#12;     // horiz Z is always one cell down (=12 bytes)
+ 1:  831 [039E] 47                       -     add     r3,r1;
+ 1:  833 [039F]                          -     
+ 1:  834 [039F]                          -     // and now do single row but do full width
+ 1:  834 [039F] 90                       -     ld.w    r0,(r2++); 
+ 1:  835 [03A0] 83                       -     ld.w    r1,(r3);
+ 1:  836 [03A1] 21                       -     xor     r1,r0;
+ 1:  837 [03A2] 9B                       -     st.w    (r3++),r1;
+ 1:  838 [03A3] 80                       -     ld.w    r0,(r2); 
+ 1:  839 [03A4] 5A                       -     addq    r2,#-2;     // rewind to use mask of this row again
+ 1:  840 [03A5] 83                       -     ld.w    r1,(r3);
+ 1:  841 [03A6] 21                       -     xor     r1,r0;
+ 1:  842 [03A7] 9B                       -     st.w    (r3++),r1;
+ 1:  844 [03A8]                          - 
+ 1:  844 [03A8] 90                       -     ld.w    r0,(r2++); 
+ 1:  845 [03A9] 83                       -     ld.w    r1,(r3);
+ 1:  846 [03AA] 21                       -     xor     r1,r0;
+ 1:  847 [03AB] 9B                       -     st.w    (r3++),r1;
+ 1:  848 [03AC] 80                       -     ld.w    r0,(r2); 
+ 1:  849 [03AD] 5A                       -     addq    r2,#-2;     // rewind to use mask of this row again
+ 1:  850 [03AE] 83                       -     ld.w    r1,(r3);
+ 1:  851 [03AF] 21                       -     xor     r1,r0;
+ 1:  852 [03B0] 9B                       -     st.w    (r3++),r1;
+ 1:  854 [03B1]                          - 
+ 1:  854 [03B1] 90                       -     ld.w    r0,(r2++); 
+ 1:  855 [03B2] 83                       -     ld.w    r1,(r3);
+ 1:  856 [03B3] 21                       -     xor     r1,r0;
+ 1:  857 [03B4] 9B                       -     st.w    (r3++),r1;
+ 1:  858 [03B5] 90                       -     ld.w    r0,(r2++);  // move forward to get mask for next row
+ 1:  859 [03B6] 83                       -     ld.w    r1,(r3);
+ 1:  860 [03B7] 21                       -     xor     r1,r0;
+ 1:  861 [03B8] 9B                       -     st.w    (r3++),r1;
+ 1:  862 [03B9] C6                       -     ret;
+ 1:  864 [03BA]                          -     
+ 1:  865 [03BA]                          -     
+ 1:  866 [03BA]                          - draw_tet_not_0:
+ 1:  866 [03BA] D4 03                    -     ld.b    r0,#3;
+ 1:  868 [03BC]                          - draw_tet_normal:
+ 1:  869 [03BC]                          -     // get the pointers to display position and pattern
+ 1:  869 [03BC] 93                       -     ld.w    r1,(r3++);
+ 1:  870 [03BD] 06                       -     move    r2,r1;      // pattern
+ 1:  871 [03BE] 93                       -     ld.w    r1,(r3++);
+ 1:  872 [03BF] 07                       -     move    r3,r1;      // position (biased)
+ 1:  874 [03C0]                          - 
+ 1:  875 [03C0]                          - draw_tet_1:
+ 1:  875 [03C0] C8                       -     push    r0;
+ 1:  877 [03C1]                          - 
+ 1:  877 [03C1] 90                       -     ld.w    r0,(r2++); // Can use this pattern for 3 rows
+ 1:  878 [03C2] 83                       -     ld.w    r1,(r3);
+ 1:  879 [03C3] 21                       -     xor     r1,r0;
+ 1:  880 [03C4] 9B                       -     st.w    (r3++),r1;
+ 1:  881 [03C5] 53                       -     addq    r3,#2;      // need to move total of 4 bytes for next write
+ 1:  883 [03C6]                          - 
+ 1:  883 [03C6] 83                       -     ld.w    r1,(r3);
+ 1:  884 [03C7] 21                       -     xor     r1,r0;
+ 1:  885 [03C8] 9B                       -     st.w    (r3++),r1;
+ 1:  886 [03C9] 53                       -     addq    r3,#2;      // need to move total of 4 bytes for next write
+ 1:  888 [03CA]                          - 
+ 1:  888 [03CA] 83                       -     ld.w    r1,(r3);
+ 1:  889 [03CB] 21                       -     xor     r1,r0;
+ 1:  890 [03CC] 9B                       -     st.w    (r3++),r1;
+ 1:  891 [03CD] 53                       -     addq    r3,#2;      // need to move total of 4 bytes for next write
+ 1:  893 [03CE]                          - 
+ 1:  894 [03CE]                          -     // stop if about to walk off end of RAM
+ 1:  894 [03CE] D0 FC A0                 -     ld.w    r0,#INT_RAM_START + INT_RAM_LEN - INT_RAM_BYTES_ACROSS;
+ 1:  895 [03D1] 73                       -     cmp     r3,r0;
+ 1:  896 [03D2] EA 05                    -     bpl     quit_draw;
+ 1:  898 [03D4]                          -     
+ 1:  899 [03D4]                          -     // restore loop count and see if go round again
+ 1:  899 [03D4] C0                       -     pop     r0;
+ 1:  900 [03D5] 5C                       -     dec     r0;
+ 1:  901 [03D6] E6 E8                    -     bne     draw_tet_1;
+ 1:  903 [03D8]                          - 
+ 1:  903 [03D8] C6                       -     ret;
+ 1:  905 [03D9]                          - 
+ 1:  906 [03D9]                          - quit_draw:  // giving up, sort out stack and then return
+ 1:  906 [03D9] C0                       -     pop     r0;
+ 1:  907 [03DA] C6                       -     ret;
+ 1:  909 [03DB]                          -     
+ 1:  910 [03DB]                          - // **************************************
+ 1:  910 [03DB]                          - end_of_program equ  $;
+ 1:  912 [03DB]                          - // **************************************
+ 1:  913 [03DB]                          - // text
+ 1:  914 [03DB]                          - text_Game:
+ 1:  914 [03DB] 38 10 82 FE              -     db      0x38,       0x10,       0x82,       0xFE;
+ 1:  915 [03DF] 44 28 C6 02              -     db      0x44,       0x28,       0xC6,       0x02;
+ 1:  916 [03E3] 82 44 AA 02              -     db      0x82,       0x44,       0xAA,       0x02;
+ 1:  917 [03E7] 02 82 92 3E              -     db      0x02,       0x82,       0x92,       0x3E;
+ 1:  918 [03EB] F2 FE 82 02              -     db      0xF2,       0xFE,       0x82,       0x02;
+ 1:  919 [03EF] 42 82 82 02              -     db      0x42,       0x82,       0x82,       0x02;
+ 1:  920 [03F3] 44 82 82 02              -     db      0x44,       0x82,       0x82,       0x02;
+ 1:  921 [03F7] 38 82 82 FE              -     db      0x38,       0x82,       0x82,       0xFE;
+ 1:  923 [03FB]                          - 
+ 1:  924 [03FB]                          - text_over:
+ 1:  924 [03FB] 10 82 FE 7E              -     db      0x10,       0x82,       0xFE,       0x7E;
+ 1:  925 [03FF] 28 82 02 82              -     db      0x28,       0x82,       0x02,       0x82;
+ 1:  926 [0403] 44 82 02 82              -     db      0x44,       0x82,       0x02,       0x82;
+ 1:  927 [0407] 82 82 3E 7E              -     db      0x82,       0x82,       0x3E,       0x7E;
+ 1:  928 [040B] 82 82 02 12              -     db      0x82,       0x82,       0x02,       0x12;
+ 1:  929 [040F] 44 44 02 22              -     db      0x44,       0x44,       0x02,       0x22;
+ 1:  930 [0413] 28 28 02 42              -     db      0x28,       0x28,       0x02,       0x42;
+ 1:  931 [0417] 10 10 FE 82              -     db      0x10,       0x10,       0xFE,       0x82;
+ 1:  933 [041B]                          - 
+ 1:  934 [041B]                          - // *******************************************************
+ 1:  935 [041B]                          - // big data blocks
+ 1:  936 [041B]                          - // *******************************************************
+ 1:  937 [041B]                          - // These tables generated by tetris_data.cpp
+ 1:  938 [041B]                          - 
+ 1:  938 [041B]                          - I_board_cell_sets        equ     $;
+ 1:  939 [041B] 00 00 0F 00 00 00 00 00  -     dw    0x0000,   0x000F,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1:  940 [0423] 02 00 02 00 02 00 02 00  -     dw    0x0002,   0x0002,   0x0002,   0x0002;     // Offset  0  Rot 1
+                         - 
+ 1:  941 [042B] 00 00 0F 00 00 00 00 00  -     dw    0x0000,   0x000F,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1:  942 [0433] 02 00 02 00 02 00 02 00  -     dw    0x0002,   0x0002,   0x0002,   0x0002;     // Offset  0  Rot 3
+                         - 
+ 1:  943 [043B] 00 00 1E 00 00 00 00 00  -     dw    0x0000,   0x001E,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1:  944 [0443] 04 00 04 00 04 00 04 00  -     dw    0x0004,   0x0004,   0x0004,   0x0004;     // Offset  1  Rot 1
+                         - 
+ 1:  945 [044B] 00 00 1E 00 00 00 00 00  -     dw    0x0000,   0x001E,   0x0000,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1:  946 [0453] 04 00 04 00 04 00 04 00  -     dw    0x0004,   0x0004,   0x0004,   0x0004;     // Offset  1  Rot 3
+                         - 
+ 1:  947 [045B] 00 00 3C 00 00 00 00 00  -     dw    0x0000,   0x003C,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1:  948 [0463] 08 00 08 00 08 00 08 00  -     dw    0x0008,   0x0008,   0x0008,   0x0008;     // Offset  2  Rot 1
+                         - 
+ 1:  949 [046B] 00 00 3C 00 00 00 00 00  -     dw    0x0000,   0x003C,   0x0000,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1:  950 [0473] 08 00 08 00 08 00 08 00  -     dw    0x0008,   0x0008,   0x0008,   0x0008;     // Offset  2  Rot 3
+                         - 
+ 1:  951 [047B] 00 00 78 00 00 00 00 00  -     dw    0x0000,   0x0078,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1:  952 [0483] 10 00 10 00 10 00 10 00  -     dw    0x0010,   0x0010,   0x0010,   0x0010;     // Offset  3  Rot 1
+                         - 
+ 1:  953 [048B] 00 00 78 00 00 00 00 00  -     dw    0x0000,   0x0078,   0x0000,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1:  954 [0493] 10 00 10 00 10 00 10 00  -     dw    0x0010,   0x0010,   0x0010,   0x0010;     // Offset  3  Rot 3
+                         - 
+ 1:  955 [049B] 00 00 F0 00 00 00 00 00  -     dw    0x0000,   0x00F0,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1:  956 [04A3] 20 00 20 00 20 00 20 00  -     dw    0x0020,   0x0020,   0x0020,   0x0020;     // Offset  4  Rot 1
+                         - 
+ 1:  957 [04AB] 00 00 F0 00 00 00 00 00  -     dw    0x0000,   0x00F0,   0x0000,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1:  958 [04B3] 20 00 20 00 20 00 20 00  -     dw    0x0020,   0x0020,   0x0020,   0x0020;     // Offset  4  Rot 3
+                         - 
+ 1:  959 [04BB] 00 00 E0 01 00 00 00 00  -     dw    0x0000,   0x01E0,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1:  960 [04C3] 40 00 40 00 40 00 40 00  -     dw    0x0040,   0x0040,   0x0040,   0x0040;     // Offset  5  Rot 1
+                         - 
+ 1:  961 [04CB] 00 00 E0 01 00 00 00 00  -     dw    0x0000,   0x01E0,   0x0000,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1:  962 [04D3] 40 00 40 00 40 00 40 00  -     dw    0x0040,   0x0040,   0x0040,   0x0040;     // Offset  5  Rot 3
+                         - 
+ 1:  963 [04DB] 00 00 C0 03 00 00 00 00  -     dw    0x0000,   0x03C0,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1:  964 [04E3] 80 00 80 00 80 00 80 00  -     dw    0x0080,   0x0080,   0x0080,   0x0080;     // Offset  6  Rot 1
+                         - 
+ 1:  965 [04EB] 00 00 C0 03 00 00 00 00  -     dw    0x0000,   0x03C0,   0x0000,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1:  966 [04F3] 80 00 80 00 80 00 80 00  -     dw    0x0080,   0x0080,   0x0080,   0x0080;     // Offset  6  Rot 3
+                         - 
+ 1:  967 [04FB] 00 00 80 07 00 00 00 00  -     dw    0x0000,   0x0780,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1:  968 [0503] 00 01 00 01 00 01 00 01  -     dw    0x0100,   0x0100,   0x0100,   0x0100;     // Offset  7  Rot 1
+                         - 
+ 1:  969 [050B] 00 00 80 07 00 00 00 00  -     dw    0x0000,   0x0780,   0x0000,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1:  970 [0513] 00 01 00 01 00 01 00 01  -     dw    0x0100,   0x0100,   0x0100,   0x0100;     // Offset  7  Rot 3
+                         - 
+ 1:  971 [051B] 00 00 00 0F 00 00 00 00  -     dw    0x0000,   0x0F00,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1:  972 [0523] 00 02 00 02 00 02 00 02  -     dw    0x0200,   0x0200,   0x0200,   0x0200;     // Offset  8  Rot 1
+                         - 
+ 1:  973 [052B] 00 00 00 0F 00 00 00 00  -     dw    0x0000,   0x0F00,   0x0000,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1:  974 [0533] 00 02 00 02 00 02 00 02  -     dw    0x0200,   0x0200,   0x0200,   0x0200;     // Offset  8  Rot 3
+                         - 
+ 1:  975 [053B] 00 00 00 1E 00 00 00 00  -     dw    0x0000,   0x1E00,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1:  976 [0543] 00 04 00 04 00 04 00 04  -     dw    0x0400,   0x0400,   0x0400,   0x0400;     // Offset  9  Rot 1
+                         - 
+ 1:  977 [054B] 00 00 00 1E 00 00 00 00  -     dw    0x0000,   0x1E00,   0x0000,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1:  978 [0553] 00 04 00 04 00 04 00 04  -     dw    0x0400,   0x0400,   0x0400,   0x0400;     // Offset  9  Rot 3
+                         - 
+ 1:  979 [055B] 00 00 00 3C 00 00 00 00  -     dw    0x0000,   0x3C00,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1:  980 [0563] 00 08 00 08 00 08 00 08  -     dw    0x0800,   0x0800,   0x0800,   0x0800;     // Offset 10  Rot 1
+                         - 
+ 1:  981 [056B] 00 00 00 3C 00 00 00 00  -     dw    0x0000,   0x3C00,   0x0000,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1:  982 [0573] 00 08 00 08 00 08 00 08  -     dw    0x0800,   0x0800,   0x0800,   0x0800;     // Offset 10  Rot 3
+                         - 
+ 1:  983 [057B] 00 00 00 78 00 00 00 00  -     dw    0x0000,   0x7800,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1:  984 [0583] 00 10 00 10 00 10 00 10  -     dw    0x1000,   0x1000,   0x1000,   0x1000;     // Offset 11  Rot 1
+                         - 
+ 1:  985 [058B] 00 00 00 78 00 00 00 00  -     dw    0x0000,   0x7800,   0x0000,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1:  986 [0593] 00 10 00 10 00 10 00 10  -     dw    0x1000,   0x1000,   0x1000,   0x1000;     // Offset 11  Rot 3
+                         - 
+ 1:  987 [059B] 00 00 00 F0 00 00 00 00  -     dw    0x0000,   0xF000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1:  988 [05A3] 00 20 00 20 00 20 00 20  -     dw    0x2000,   0x2000,   0x2000,   0x2000;     // Offset 12  Rot 1
+                         - 
+ 1:  989 [05AB] 00 00 00 F0 00 00 00 00  -     dw    0x0000,   0xF000,   0x0000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1:  990 [05B3] 00 20 00 20 00 20 00 20  -     dw    0x2000,   0x2000,   0x2000,   0x2000;     // Offset 12  Rot 3
+                         - 
+ 1:  992 [05BB]                          - 
+ 1:  992 [05BB]                          - O_board_cell_sets        equ     $;
+ 1:  993 [05BB] 06 00 06 00 00 00 00 00  -     dw    0x0006,   0x0006,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1:  994 [05C3] 06 00 06 00 00 00 00 00  -     dw    0x0006,   0x0006,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1:  995 [05CB] 06 00 06 00 00 00 00 00  -     dw    0x0006,   0x0006,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1:  996 [05D3] 06 00 06 00 00 00 00 00  -     dw    0x0006,   0x0006,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1:  997 [05DB] 0C 00 0C 00 00 00 00 00  -     dw    0x000C,   0x000C,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1:  998 [05E3] 0C 00 0C 00 00 00 00 00  -     dw    0x000C,   0x000C,   0x0000,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1:  999 [05EB] 0C 00 0C 00 00 00 00 00  -     dw    0x000C,   0x000C,   0x0000,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1000 [05F3] 0C 00 0C 00 00 00 00 00  -     dw    0x000C,   0x000C,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1001 [05FB] 18 00 18 00 00 00 00 00  -     dw    0x0018,   0x0018,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1002 [0603] 18 00 18 00 00 00 00 00  -     dw    0x0018,   0x0018,   0x0000,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1003 [060B] 18 00 18 00 00 00 00 00  -     dw    0x0018,   0x0018,   0x0000,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1004 [0613] 18 00 18 00 00 00 00 00  -     dw    0x0018,   0x0018,   0x0000,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1005 [061B] 30 00 30 00 00 00 00 00  -     dw    0x0030,   0x0030,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1006 [0623] 30 00 30 00 00 00 00 00  -     dw    0x0030,   0x0030,   0x0000,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1007 [062B] 30 00 30 00 00 00 00 00  -     dw    0x0030,   0x0030,   0x0000,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1008 [0633] 30 00 30 00 00 00 00 00  -     dw    0x0030,   0x0030,   0x0000,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1009 [063B] 60 00 60 00 00 00 00 00  -     dw    0x0060,   0x0060,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1010 [0643] 60 00 60 00 00 00 00 00  -     dw    0x0060,   0x0060,   0x0000,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1011 [064B] 60 00 60 00 00 00 00 00  -     dw    0x0060,   0x0060,   0x0000,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1012 [0653] 60 00 60 00 00 00 00 00  -     dw    0x0060,   0x0060,   0x0000,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1013 [065B] C0 00 C0 00 00 00 00 00  -     dw    0x00C0,   0x00C0,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1014 [0663] C0 00 C0 00 00 00 00 00  -     dw    0x00C0,   0x00C0,   0x0000,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1015 [066B] C0 00 C0 00 00 00 00 00  -     dw    0x00C0,   0x00C0,   0x0000,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1016 [0673] C0 00 C0 00 00 00 00 00  -     dw    0x00C0,   0x00C0,   0x0000,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1017 [067B] 80 01 80 01 00 00 00 00  -     dw    0x0180,   0x0180,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1018 [0683] 80 01 80 01 00 00 00 00  -     dw    0x0180,   0x0180,   0x0000,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1019 [068B] 80 01 80 01 00 00 00 00  -     dw    0x0180,   0x0180,   0x0000,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1020 [0693] 80 01 80 01 00 00 00 00  -     dw    0x0180,   0x0180,   0x0000,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1021 [069B] 00 03 00 03 00 00 00 00  -     dw    0x0300,   0x0300,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1022 [06A3] 00 03 00 03 00 00 00 00  -     dw    0x0300,   0x0300,   0x0000,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1023 [06AB] 00 03 00 03 00 00 00 00  -     dw    0x0300,   0x0300,   0x0000,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1024 [06B3] 00 03 00 03 00 00 00 00  -     dw    0x0300,   0x0300,   0x0000,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1025 [06BB] 00 06 00 06 00 00 00 00  -     dw    0x0600,   0x0600,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1026 [06C3] 00 06 00 06 00 00 00 00  -     dw    0x0600,   0x0600,   0x0000,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1027 [06CB] 00 06 00 06 00 00 00 00  -     dw    0x0600,   0x0600,   0x0000,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1028 [06D3] 00 06 00 06 00 00 00 00  -     dw    0x0600,   0x0600,   0x0000,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1029 [06DB] 00 0C 00 0C 00 00 00 00  -     dw    0x0C00,   0x0C00,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1030 [06E3] 00 0C 00 0C 00 00 00 00  -     dw    0x0C00,   0x0C00,   0x0000,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1031 [06EB] 00 0C 00 0C 00 00 00 00  -     dw    0x0C00,   0x0C00,   0x0000,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1032 [06F3] 00 0C 00 0C 00 00 00 00  -     dw    0x0C00,   0x0C00,   0x0000,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1033 [06FB] 00 18 00 18 00 00 00 00  -     dw    0x1800,   0x1800,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1034 [0703] 00 18 00 18 00 00 00 00  -     dw    0x1800,   0x1800,   0x0000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1035 [070B] 00 18 00 18 00 00 00 00  -     dw    0x1800,   0x1800,   0x0000,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1036 [0713] 00 18 00 18 00 00 00 00  -     dw    0x1800,   0x1800,   0x0000,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1037 [071B] 00 30 00 30 00 00 00 00  -     dw    0x3000,   0x3000,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1038 [0723] 00 30 00 30 00 00 00 00  -     dw    0x3000,   0x3000,   0x0000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1039 [072B] 00 30 00 30 00 00 00 00  -     dw    0x3000,   0x3000,   0x0000,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1040 [0733] 00 30 00 30 00 00 00 00  -     dw    0x3000,   0x3000,   0x0000,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1041 [073B] 00 60 00 60 00 00 00 00  -     dw    0x6000,   0x6000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1042 [0743] 00 60 00 60 00 00 00 00  -     dw    0x6000,   0x6000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1043 [074B] 00 60 00 60 00 00 00 00  -     dw    0x6000,   0x6000,   0x0000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1044 [0753] 00 60 00 60 00 00 00 00  -     dw    0x6000,   0x6000,   0x0000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1046 [075B]                          - 
+ 1: 1046 [075B]                          - T_board_cell_sets        equ     $;
+ 1: 1047 [075B] 07 00 02 00 00 00 00 00  -     dw    0x0007,   0x0002,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1048 [0763] 04 00 06 00 04 00 00 00  -     dw    0x0004,   0x0006,   0x0004,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1049 [076B] 00 00 02 00 07 00 00 00  -     dw    0x0000,   0x0002,   0x0007,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1050 [0773] 01 00 03 00 01 00 00 00  -     dw    0x0001,   0x0003,   0x0001,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1051 [077B] 0E 00 04 00 00 00 00 00  -     dw    0x000E,   0x0004,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1052 [0783] 08 00 0C 00 08 00 00 00  -     dw    0x0008,   0x000C,   0x0008,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1053 [078B] 00 00 04 00 0E 00 00 00  -     dw    0x0000,   0x0004,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1054 [0793] 02 00 06 00 02 00 00 00  -     dw    0x0002,   0x0006,   0x0002,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1055 [079B] 1C 00 08 00 00 00 00 00  -     dw    0x001C,   0x0008,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1056 [07A3] 10 00 18 00 10 00 00 00  -     dw    0x0010,   0x0018,   0x0010,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1057 [07AB] 00 00 08 00 1C 00 00 00  -     dw    0x0000,   0x0008,   0x001C,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1058 [07B3] 04 00 0C 00 04 00 00 00  -     dw    0x0004,   0x000C,   0x0004,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1059 [07BB] 38 00 10 00 00 00 00 00  -     dw    0x0038,   0x0010,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1060 [07C3] 20 00 30 00 20 00 00 00  -     dw    0x0020,   0x0030,   0x0020,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1061 [07CB] 00 00 10 00 38 00 00 00  -     dw    0x0000,   0x0010,   0x0038,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1062 [07D3] 08 00 18 00 08 00 00 00  -     dw    0x0008,   0x0018,   0x0008,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1063 [07DB] 70 00 20 00 00 00 00 00  -     dw    0x0070,   0x0020,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1064 [07E3] 40 00 60 00 40 00 00 00  -     dw    0x0040,   0x0060,   0x0040,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1065 [07EB] 00 00 20 00 70 00 00 00  -     dw    0x0000,   0x0020,   0x0070,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1066 [07F3] 10 00 30 00 10 00 00 00  -     dw    0x0010,   0x0030,   0x0010,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1067 [07FB] E0 00 40 00 00 00 00 00  -     dw    0x00E0,   0x0040,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1068 [0803] 80 00 C0 00 80 00 00 00  -     dw    0x0080,   0x00C0,   0x0080,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1069 [080B] 00 00 40 00 E0 00 00 00  -     dw    0x0000,   0x0040,   0x00E0,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1070 [0813] 20 00 60 00 20 00 00 00  -     dw    0x0020,   0x0060,   0x0020,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1071 [081B] C0 01 80 00 00 00 00 00  -     dw    0x01C0,   0x0080,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1072 [0823] 00 01 80 01 00 01 00 00  -     dw    0x0100,   0x0180,   0x0100,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1073 [082B] 00 00 80 00 C0 01 00 00  -     dw    0x0000,   0x0080,   0x01C0,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1074 [0833] 40 00 C0 00 40 00 00 00  -     dw    0x0040,   0x00C0,   0x0040,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1075 [083B] 80 03 00 01 00 00 00 00  -     dw    0x0380,   0x0100,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1076 [0843] 00 02 00 03 00 02 00 00  -     dw    0x0200,   0x0300,   0x0200,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1077 [084B] 00 00 00 01 80 03 00 00  -     dw    0x0000,   0x0100,   0x0380,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1078 [0853] 80 00 80 01 80 00 00 00  -     dw    0x0080,   0x0180,   0x0080,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1079 [085B] 00 07 00 02 00 00 00 00  -     dw    0x0700,   0x0200,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1080 [0863] 00 04 00 06 00 04 00 00  -     dw    0x0400,   0x0600,   0x0400,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1081 [086B] 00 00 00 02 00 07 00 00  -     dw    0x0000,   0x0200,   0x0700,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1082 [0873] 00 01 00 03 00 01 00 00  -     dw    0x0100,   0x0300,   0x0100,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1083 [087B] 00 0E 00 04 00 00 00 00  -     dw    0x0E00,   0x0400,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1084 [0883] 00 08 00 0C 00 08 00 00  -     dw    0x0800,   0x0C00,   0x0800,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1085 [088B] 00 00 00 04 00 0E 00 00  -     dw    0x0000,   0x0400,   0x0E00,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1086 [0893] 00 02 00 06 00 02 00 00  -     dw    0x0200,   0x0600,   0x0200,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1087 [089B] 00 1C 00 08 00 00 00 00  -     dw    0x1C00,   0x0800,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1088 [08A3] 00 10 00 18 00 10 00 00  -     dw    0x1000,   0x1800,   0x1000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1089 [08AB] 00 00 00 08 00 1C 00 00  -     dw    0x0000,   0x0800,   0x1C00,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1090 [08B3] 00 04 00 0C 00 04 00 00  -     dw    0x0400,   0x0C00,   0x0400,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1091 [08BB] 00 38 00 10 00 00 00 00  -     dw    0x3800,   0x1000,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1092 [08C3] 00 20 00 30 00 20 00 00  -     dw    0x2000,   0x3000,   0x2000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1093 [08CB] 00 00 00 10 00 38 00 00  -     dw    0x0000,   0x1000,   0x3800,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1094 [08D3] 00 08 00 18 00 08 00 00  -     dw    0x0800,   0x1800,   0x0800,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1095 [08DB] 00 70 00 20 00 00 00 00  -     dw    0x7000,   0x2000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1096 [08E3] 00 40 00 60 00 40 00 00  -     dw    0x4000,   0x6000,   0x4000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1097 [08EB] 00 00 00 20 00 70 00 00  -     dw    0x0000,   0x2000,   0x7000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1098 [08F3] 00 10 00 30 00 10 00 00  -     dw    0x1000,   0x3000,   0x1000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1100 [08FB]                          - 
+ 1: 1100 [08FB]                          - S_board_cell_sets        equ     $;
+ 1: 1101 [08FB] 03 00 06 00 00 00 00 00  -     dw    0x0003,   0x0006,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1102 [0903] 04 00 06 00 02 00 00 00  -     dw    0x0004,   0x0006,   0x0002,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1103 [090B] 00 00 03 00 06 00 00 00  -     dw    0x0000,   0x0003,   0x0006,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1104 [0913] 02 00 03 00 01 00 00 00  -     dw    0x0002,   0x0003,   0x0001,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1105 [091B] 06 00 0C 00 00 00 00 00  -     dw    0x0006,   0x000C,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1106 [0923] 08 00 0C 00 04 00 00 00  -     dw    0x0008,   0x000C,   0x0004,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1107 [092B] 00 00 06 00 0C 00 00 00  -     dw    0x0000,   0x0006,   0x000C,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1108 [0933] 04 00 06 00 02 00 00 00  -     dw    0x0004,   0x0006,   0x0002,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1109 [093B] 0C 00 18 00 00 00 00 00  -     dw    0x000C,   0x0018,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1110 [0943] 10 00 18 00 08 00 00 00  -     dw    0x0010,   0x0018,   0x0008,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1111 [094B] 00 00 0C 00 18 00 00 00  -     dw    0x0000,   0x000C,   0x0018,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1112 [0953] 08 00 0C 00 04 00 00 00  -     dw    0x0008,   0x000C,   0x0004,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1113 [095B] 18 00 30 00 00 00 00 00  -     dw    0x0018,   0x0030,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1114 [0963] 20 00 30 00 10 00 00 00  -     dw    0x0020,   0x0030,   0x0010,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1115 [096B] 00 00 18 00 30 00 00 00  -     dw    0x0000,   0x0018,   0x0030,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1116 [0973] 10 00 18 00 08 00 00 00  -     dw    0x0010,   0x0018,   0x0008,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1117 [097B] 30 00 60 00 00 00 00 00  -     dw    0x0030,   0x0060,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1118 [0983] 40 00 60 00 20 00 00 00  -     dw    0x0040,   0x0060,   0x0020,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1119 [098B] 00 00 30 00 60 00 00 00  -     dw    0x0000,   0x0030,   0x0060,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1120 [0993] 20 00 30 00 10 00 00 00  -     dw    0x0020,   0x0030,   0x0010,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1121 [099B] 60 00 C0 00 00 00 00 00  -     dw    0x0060,   0x00C0,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1122 [09A3] 80 00 C0 00 40 00 00 00  -     dw    0x0080,   0x00C0,   0x0040,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1123 [09AB] 00 00 60 00 C0 00 00 00  -     dw    0x0000,   0x0060,   0x00C0,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1124 [09B3] 40 00 60 00 20 00 00 00  -     dw    0x0040,   0x0060,   0x0020,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1125 [09BB] C0 00 80 01 00 00 00 00  -     dw    0x00C0,   0x0180,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1126 [09C3] 00 01 80 01 80 00 00 00  -     dw    0x0100,   0x0180,   0x0080,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1127 [09CB] 00 00 C0 00 80 01 00 00  -     dw    0x0000,   0x00C0,   0x0180,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1128 [09D3] 80 00 C0 00 40 00 00 00  -     dw    0x0080,   0x00C0,   0x0040,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1129 [09DB] 80 01 00 03 00 00 00 00  -     dw    0x0180,   0x0300,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1130 [09E3] 00 02 00 03 00 01 00 00  -     dw    0x0200,   0x0300,   0x0100,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1131 [09EB] 00 00 80 01 00 03 00 00  -     dw    0x0000,   0x0180,   0x0300,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1132 [09F3] 00 01 80 01 80 00 00 00  -     dw    0x0100,   0x0180,   0x0080,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1133 [09FB] 00 03 00 06 00 00 00 00  -     dw    0x0300,   0x0600,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1134 [0A03] 00 04 00 06 00 02 00 00  -     dw    0x0400,   0x0600,   0x0200,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1135 [0A0B] 00 00 00 03 00 06 00 00  -     dw    0x0000,   0x0300,   0x0600,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1136 [0A13] 00 02 00 03 00 01 00 00  -     dw    0x0200,   0x0300,   0x0100,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1137 [0A1B] 00 06 00 0C 00 00 00 00  -     dw    0x0600,   0x0C00,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1138 [0A23] 00 08 00 0C 00 04 00 00  -     dw    0x0800,   0x0C00,   0x0400,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1139 [0A2B] 00 00 00 06 00 0C 00 00  -     dw    0x0000,   0x0600,   0x0C00,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1140 [0A33] 00 04 00 06 00 02 00 00  -     dw    0x0400,   0x0600,   0x0200,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1141 [0A3B] 00 0C 00 18 00 00 00 00  -     dw    0x0C00,   0x1800,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1142 [0A43] 00 10 00 18 00 08 00 00  -     dw    0x1000,   0x1800,   0x0800,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1143 [0A4B] 00 00 00 0C 00 18 00 00  -     dw    0x0000,   0x0C00,   0x1800,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1144 [0A53] 00 08 00 0C 00 04 00 00  -     dw    0x0800,   0x0C00,   0x0400,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1145 [0A5B] 00 18 00 30 00 00 00 00  -     dw    0x1800,   0x3000,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1146 [0A63] 00 20 00 30 00 10 00 00  -     dw    0x2000,   0x3000,   0x1000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1147 [0A6B] 00 00 00 18 00 30 00 00  -     dw    0x0000,   0x1800,   0x3000,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1148 [0A73] 00 10 00 18 00 08 00 00  -     dw    0x1000,   0x1800,   0x0800,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1149 [0A7B] 00 30 00 60 00 00 00 00  -     dw    0x3000,   0x6000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1150 [0A83] 00 40 00 60 00 20 00 00  -     dw    0x4000,   0x6000,   0x2000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1151 [0A8B] 00 00 00 30 00 60 00 00  -     dw    0x0000,   0x3000,   0x6000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1152 [0A93] 00 20 00 30 00 10 00 00  -     dw    0x2000,   0x3000,   0x1000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1154 [0A9B]                          - 
+ 1: 1154 [0A9B]                          - Z_board_cell_sets        equ     $;
+ 1: 1155 [0A9B] 06 00 03 00 00 00 00 00  -     dw    0x0006,   0x0003,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1156 [0AA3] 02 00 06 00 04 00 00 00  -     dw    0x0002,   0x0006,   0x0004,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1157 [0AAB] 00 00 06 00 03 00 00 00  -     dw    0x0000,   0x0006,   0x0003,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1158 [0AB3] 01 00 03 00 02 00 00 00  -     dw    0x0001,   0x0003,   0x0002,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1159 [0ABB] 0C 00 06 00 00 00 00 00  -     dw    0x000C,   0x0006,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1160 [0AC3] 04 00 0C 00 08 00 00 00  -     dw    0x0004,   0x000C,   0x0008,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1161 [0ACB] 00 00 0C 00 06 00 00 00  -     dw    0x0000,   0x000C,   0x0006,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1162 [0AD3] 02 00 06 00 04 00 00 00  -     dw    0x0002,   0x0006,   0x0004,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1163 [0ADB] 18 00 0C 00 00 00 00 00  -     dw    0x0018,   0x000C,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1164 [0AE3] 08 00 18 00 10 00 00 00  -     dw    0x0008,   0x0018,   0x0010,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1165 [0AEB] 00 00 18 00 0C 00 00 00  -     dw    0x0000,   0x0018,   0x000C,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1166 [0AF3] 04 00 0C 00 08 00 00 00  -     dw    0x0004,   0x000C,   0x0008,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1167 [0AFB] 30 00 18 00 00 00 00 00  -     dw    0x0030,   0x0018,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1168 [0B03] 10 00 30 00 20 00 00 00  -     dw    0x0010,   0x0030,   0x0020,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1169 [0B0B] 00 00 30 00 18 00 00 00  -     dw    0x0000,   0x0030,   0x0018,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1170 [0B13] 08 00 18 00 10 00 00 00  -     dw    0x0008,   0x0018,   0x0010,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1171 [0B1B] 60 00 30 00 00 00 00 00  -     dw    0x0060,   0x0030,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1172 [0B23] 20 00 60 00 40 00 00 00  -     dw    0x0020,   0x0060,   0x0040,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1173 [0B2B] 00 00 60 00 30 00 00 00  -     dw    0x0000,   0x0060,   0x0030,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1174 [0B33] 10 00 30 00 20 00 00 00  -     dw    0x0010,   0x0030,   0x0020,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1175 [0B3B] C0 00 60 00 00 00 00 00  -     dw    0x00C0,   0x0060,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1176 [0B43] 40 00 C0 00 80 00 00 00  -     dw    0x0040,   0x00C0,   0x0080,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1177 [0B4B] 00 00 C0 00 60 00 00 00  -     dw    0x0000,   0x00C0,   0x0060,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1178 [0B53] 20 00 60 00 40 00 00 00  -     dw    0x0020,   0x0060,   0x0040,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1179 [0B5B] 80 01 C0 00 00 00 00 00  -     dw    0x0180,   0x00C0,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1180 [0B63] 80 00 80 01 00 01 00 00  -     dw    0x0080,   0x0180,   0x0100,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1181 [0B6B] 00 00 80 01 C0 00 00 00  -     dw    0x0000,   0x0180,   0x00C0,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1182 [0B73] 40 00 C0 00 80 00 00 00  -     dw    0x0040,   0x00C0,   0x0080,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1183 [0B7B] 00 03 80 01 00 00 00 00  -     dw    0x0300,   0x0180,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1184 [0B83] 00 01 00 03 00 02 00 00  -     dw    0x0100,   0x0300,   0x0200,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1185 [0B8B] 00 00 00 03 80 01 00 00  -     dw    0x0000,   0x0300,   0x0180,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1186 [0B93] 80 00 80 01 00 01 00 00  -     dw    0x0080,   0x0180,   0x0100,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1187 [0B9B] 00 06 00 03 00 00 00 00  -     dw    0x0600,   0x0300,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1188 [0BA3] 00 02 00 06 00 04 00 00  -     dw    0x0200,   0x0600,   0x0400,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1189 [0BAB] 00 00 00 06 00 03 00 00  -     dw    0x0000,   0x0600,   0x0300,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1190 [0BB3] 00 01 00 03 00 02 00 00  -     dw    0x0100,   0x0300,   0x0200,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1191 [0BBB] 00 0C 00 06 00 00 00 00  -     dw    0x0C00,   0x0600,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1192 [0BC3] 00 04 00 0C 00 08 00 00  -     dw    0x0400,   0x0C00,   0x0800,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1193 [0BCB] 00 00 00 0C 00 06 00 00  -     dw    0x0000,   0x0C00,   0x0600,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1194 [0BD3] 00 02 00 06 00 04 00 00  -     dw    0x0200,   0x0600,   0x0400,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1195 [0BDB] 00 18 00 0C 00 00 00 00  -     dw    0x1800,   0x0C00,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1196 [0BE3] 00 08 00 18 00 10 00 00  -     dw    0x0800,   0x1800,   0x1000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1197 [0BEB] 00 00 00 18 00 0C 00 00  -     dw    0x0000,   0x1800,   0x0C00,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1198 [0BF3] 00 04 00 0C 00 08 00 00  -     dw    0x0400,   0x0C00,   0x0800,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1199 [0BFB] 00 30 00 18 00 00 00 00  -     dw    0x3000,   0x1800,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1200 [0C03] 00 10 00 30 00 20 00 00  -     dw    0x1000,   0x3000,   0x2000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1201 [0C0B] 00 00 00 30 00 18 00 00  -     dw    0x0000,   0x3000,   0x1800,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1202 [0C13] 00 08 00 18 00 10 00 00  -     dw    0x0800,   0x1800,   0x1000,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1203 [0C1B] 00 60 00 30 00 00 00 00  -     dw    0x6000,   0x3000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1204 [0C23] 00 20 00 60 00 40 00 00  -     dw    0x2000,   0x6000,   0x4000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1205 [0C2B] 00 00 00 60 00 30 00 00  -     dw    0x0000,   0x6000,   0x3000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1206 [0C33] 00 10 00 30 00 20 00 00  -     dw    0x1000,   0x3000,   0x2000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1208 [0C3B]                          - 
+ 1: 1208 [0C3B]                          - J_board_cell_sets        equ     $;
+ 1: 1209 [0C3B] 07 00 04 00 00 00 00 00  -     dw    0x0007,   0x0004,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1210 [0C43] 04 00 04 00 06 00 00 00  -     dw    0x0004,   0x0004,   0x0006,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1211 [0C4B] 00 00 01 00 07 00 00 00  -     dw    0x0000,   0x0001,   0x0007,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1212 [0C53] 03 00 01 00 01 00 00 00  -     dw    0x0003,   0x0001,   0x0001,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1213 [0C5B] 0E 00 08 00 00 00 00 00  -     dw    0x000E,   0x0008,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1214 [0C63] 08 00 08 00 0C 00 00 00  -     dw    0x0008,   0x0008,   0x000C,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1215 [0C6B] 00 00 02 00 0E 00 00 00  -     dw    0x0000,   0x0002,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1216 [0C73] 06 00 02 00 02 00 00 00  -     dw    0x0006,   0x0002,   0x0002,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1217 [0C7B] 1C 00 10 00 00 00 00 00  -     dw    0x001C,   0x0010,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1218 [0C83] 10 00 10 00 18 00 00 00  -     dw    0x0010,   0x0010,   0x0018,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1219 [0C8B] 00 00 04 00 1C 00 00 00  -     dw    0x0000,   0x0004,   0x001C,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1220 [0C93] 0C 00 04 00 04 00 00 00  -     dw    0x000C,   0x0004,   0x0004,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1221 [0C9B] 38 00 20 00 00 00 00 00  -     dw    0x0038,   0x0020,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1222 [0CA3] 20 00 20 00 30 00 00 00  -     dw    0x0020,   0x0020,   0x0030,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1223 [0CAB] 00 00 08 00 38 00 00 00  -     dw    0x0000,   0x0008,   0x0038,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1224 [0CB3] 18 00 08 00 08 00 00 00  -     dw    0x0018,   0x0008,   0x0008,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1225 [0CBB] 70 00 40 00 00 00 00 00  -     dw    0x0070,   0x0040,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1226 [0CC3] 40 00 40 00 60 00 00 00  -     dw    0x0040,   0x0040,   0x0060,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1227 [0CCB] 00 00 10 00 70 00 00 00  -     dw    0x0000,   0x0010,   0x0070,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1228 [0CD3] 30 00 10 00 10 00 00 00  -     dw    0x0030,   0x0010,   0x0010,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1229 [0CDB] E0 00 80 00 00 00 00 00  -     dw    0x00E0,   0x0080,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1230 [0CE3] 80 00 80 00 C0 00 00 00  -     dw    0x0080,   0x0080,   0x00C0,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1231 [0CEB] 00 00 20 00 E0 00 00 00  -     dw    0x0000,   0x0020,   0x00E0,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1232 [0CF3] 60 00 20 00 20 00 00 00  -     dw    0x0060,   0x0020,   0x0020,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1233 [0CFB] C0 01 00 01 00 00 00 00  -     dw    0x01C0,   0x0100,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1234 [0D03] 00 01 00 01 80 01 00 00  -     dw    0x0100,   0x0100,   0x0180,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1235 [0D0B] 00 00 40 00 C0 01 00 00  -     dw    0x0000,   0x0040,   0x01C0,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1236 [0D13] C0 00 40 00 40 00 00 00  -     dw    0x00C0,   0x0040,   0x0040,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1237 [0D1B] 80 03 00 02 00 00 00 00  -     dw    0x0380,   0x0200,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1238 [0D23] 00 02 00 02 00 03 00 00  -     dw    0x0200,   0x0200,   0x0300,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1239 [0D2B] 00 00 80 00 80 03 00 00  -     dw    0x0000,   0x0080,   0x0380,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1240 [0D33] 80 01 80 00 80 00 00 00  -     dw    0x0180,   0x0080,   0x0080,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1241 [0D3B] 00 07 00 04 00 00 00 00  -     dw    0x0700,   0x0400,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1242 [0D43] 00 04 00 04 00 06 00 00  -     dw    0x0400,   0x0400,   0x0600,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1243 [0D4B] 00 00 00 01 00 07 00 00  -     dw    0x0000,   0x0100,   0x0700,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1244 [0D53] 00 03 00 01 00 01 00 00  -     dw    0x0300,   0x0100,   0x0100,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1245 [0D5B] 00 0E 00 08 00 00 00 00  -     dw    0x0E00,   0x0800,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1246 [0D63] 00 08 00 08 00 0C 00 00  -     dw    0x0800,   0x0800,   0x0C00,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1247 [0D6B] 00 00 00 02 00 0E 00 00  -     dw    0x0000,   0x0200,   0x0E00,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1248 [0D73] 00 06 00 02 00 02 00 00  -     dw    0x0600,   0x0200,   0x0200,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1249 [0D7B] 00 1C 00 10 00 00 00 00  -     dw    0x1C00,   0x1000,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1250 [0D83] 00 10 00 10 00 18 00 00  -     dw    0x1000,   0x1000,   0x1800,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1251 [0D8B] 00 00 00 04 00 1C 00 00  -     dw    0x0000,   0x0400,   0x1C00,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1252 [0D93] 00 0C 00 04 00 04 00 00  -     dw    0x0C00,   0x0400,   0x0400,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1253 [0D9B] 00 38 00 20 00 00 00 00  -     dw    0x3800,   0x2000,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1254 [0DA3] 00 20 00 20 00 30 00 00  -     dw    0x2000,   0x2000,   0x3000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1255 [0DAB] 00 00 00 08 00 38 00 00  -     dw    0x0000,   0x0800,   0x3800,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1256 [0DB3] 00 18 00 08 00 08 00 00  -     dw    0x1800,   0x0800,   0x0800,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1257 [0DBB] 00 70 00 40 00 00 00 00  -     dw    0x7000,   0x4000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1258 [0DC3] 00 40 00 40 00 60 00 00  -     dw    0x4000,   0x4000,   0x6000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1259 [0DCB] 00 00 00 10 00 70 00 00  -     dw    0x0000,   0x1000,   0x7000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1260 [0DD3] 00 30 00 10 00 10 00 00  -     dw    0x3000,   0x1000,   0x1000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1262 [0DDB]                          - 
+ 1: 1262 [0DDB]                          - L_board_cell_sets        equ     $;
+ 1: 1263 [0DDB] 07 00 01 00 00 00 00 00  -     dw    0x0007,   0x0001,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1264 [0DE3] 06 00 04 00 04 00 00 00  -     dw    0x0006,   0x0004,   0x0004,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1265 [0DEB] 00 00 04 00 07 00 00 00  -     dw    0x0000,   0x0004,   0x0007,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1266 [0DF3] 01 00 01 00 03 00 00 00  -     dw    0x0001,   0x0001,   0x0003,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1267 [0DFB] 0E 00 02 00 00 00 00 00  -     dw    0x000E,   0x0002,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1268 [0E03] 0C 00 08 00 08 00 00 00  -     dw    0x000C,   0x0008,   0x0008,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1269 [0E0B] 00 00 08 00 0E 00 00 00  -     dw    0x0000,   0x0008,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1270 [0E13] 02 00 02 00 06 00 00 00  -     dw    0x0002,   0x0002,   0x0006,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1271 [0E1B] 1C 00 04 00 00 00 00 00  -     dw    0x001C,   0x0004,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1272 [0E23] 18 00 10 00 10 00 00 00  -     dw    0x0018,   0x0010,   0x0010,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1273 [0E2B] 00 00 10 00 1C 00 00 00  -     dw    0x0000,   0x0010,   0x001C,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1274 [0E33] 04 00 04 00 0C 00 00 00  -     dw    0x0004,   0x0004,   0x000C,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1275 [0E3B] 38 00 08 00 00 00 00 00  -     dw    0x0038,   0x0008,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1276 [0E43] 30 00 20 00 20 00 00 00  -     dw    0x0030,   0x0020,   0x0020,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1277 [0E4B] 00 00 20 00 38 00 00 00  -     dw    0x0000,   0x0020,   0x0038,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1278 [0E53] 08 00 08 00 18 00 00 00  -     dw    0x0008,   0x0008,   0x0018,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1279 [0E5B] 70 00 10 00 00 00 00 00  -     dw    0x0070,   0x0010,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1280 [0E63] 60 00 40 00 40 00 00 00  -     dw    0x0060,   0x0040,   0x0040,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1281 [0E6B] 00 00 40 00 70 00 00 00  -     dw    0x0000,   0x0040,   0x0070,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1282 [0E73] 10 00 10 00 30 00 00 00  -     dw    0x0010,   0x0010,   0x0030,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1283 [0E7B] E0 00 20 00 00 00 00 00  -     dw    0x00E0,   0x0020,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1284 [0E83] C0 00 80 00 80 00 00 00  -     dw    0x00C0,   0x0080,   0x0080,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1285 [0E8B] 00 00 80 00 E0 00 00 00  -     dw    0x0000,   0x0080,   0x00E0,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1286 [0E93] 20 00 20 00 60 00 00 00  -     dw    0x0020,   0x0020,   0x0060,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1287 [0E9B] C0 01 40 00 00 00 00 00  -     dw    0x01C0,   0x0040,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1288 [0EA3] 80 01 00 01 00 01 00 00  -     dw    0x0180,   0x0100,   0x0100,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1289 [0EAB] 00 00 00 01 C0 01 00 00  -     dw    0x0000,   0x0100,   0x01C0,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1290 [0EB3] 40 00 40 00 C0 00 00 00  -     dw    0x0040,   0x0040,   0x00C0,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1291 [0EBB] 80 03 80 00 00 00 00 00  -     dw    0x0380,   0x0080,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1292 [0EC3] 00 03 00 02 00 02 00 00  -     dw    0x0300,   0x0200,   0x0200,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1293 [0ECB] 00 00 00 02 80 03 00 00  -     dw    0x0000,   0x0200,   0x0380,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1294 [0ED3] 80 00 80 00 80 01 00 00  -     dw    0x0080,   0x0080,   0x0180,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1295 [0EDB] 00 07 00 01 00 00 00 00  -     dw    0x0700,   0x0100,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1296 [0EE3] 00 06 00 04 00 04 00 00  -     dw    0x0600,   0x0400,   0x0400,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1297 [0EEB] 00 00 00 04 00 07 00 00  -     dw    0x0000,   0x0400,   0x0700,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1298 [0EF3] 00 01 00 01 00 03 00 00  -     dw    0x0100,   0x0100,   0x0300,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1299 [0EFB] 00 0E 00 02 00 00 00 00  -     dw    0x0E00,   0x0200,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1300 [0F03] 00 0C 00 08 00 08 00 00  -     dw    0x0C00,   0x0800,   0x0800,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1301 [0F0B] 00 00 00 08 00 0E 00 00  -     dw    0x0000,   0x0800,   0x0E00,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1302 [0F13] 00 02 00 02 00 06 00 00  -     dw    0x0200,   0x0200,   0x0600,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1303 [0F1B] 00 1C 00 04 00 00 00 00  -     dw    0x1C00,   0x0400,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1304 [0F23] 00 18 00 10 00 10 00 00  -     dw    0x1800,   0x1000,   0x1000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1305 [0F2B] 00 00 00 10 00 1C 00 00  -     dw    0x0000,   0x1000,   0x1C00,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1306 [0F33] 00 04 00 04 00 0C 00 00  -     dw    0x0400,   0x0400,   0x0C00,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1307 [0F3B] 00 38 00 08 00 00 00 00  -     dw    0x3800,   0x0800,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1308 [0F43] 00 30 00 20 00 20 00 00  -     dw    0x3000,   0x2000,   0x2000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1309 [0F4B] 00 00 00 20 00 38 00 00  -     dw    0x0000,   0x2000,   0x3800,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1310 [0F53] 00 08 00 08 00 18 00 00  -     dw    0x0800,   0x0800,   0x1800,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1311 [0F5B] 00 70 00 10 00 00 00 00  -     dw    0x7000,   0x1000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1312 [0F63] 00 60 00 40 00 40 00 00  -     dw    0x6000,   0x4000,   0x4000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1313 [0F6B] 00 00 00 40 00 70 00 00  -     dw    0x0000,   0x4000,   0x7000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1314 [0F73] 00 10 00 10 00 30 00 00  -     dw    0x1000,   0x1000,   0x3000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1316 [0F7B]                          - 
+ 1: 1316 [0F7B]                          - horz_I_set        equ     $;
+ 1: 1317 [0F7B] 0E 00 00 00              -     dl    0x0000000E;
+ 1: 1318 [0F7F] 7E 00 00 00              -     dl    0x0000007E;
+ 1: 1319 [0F83] FE 03 00 00              -     dl    0x000003FE;
+ 1: 1320 [0F87] FE 1F 00 00              -     dl    0x00001FFE;
+ 1: 1321 [0F8B] F0 FF 00 00              -     dl    0x0000FFF0;
+ 1: 1322 [0F8F] 80 FF 07 00              -     dl    0x0007FF80;
+ 1: 1323 [0F93] 00 FC 3F 00              -     dl    0x003FFC00;
+ 1: 1324 [0F97] 00 E0 FF 01              -     dl    0x01FFE000;
+ 1: 1325 [0F9B] 00 00 FF 0F              -     dl    0x0FFF0000;
+ 1: 1326 [0F9F] 00 00 F8 7F              -     dl    0x7FF80000;
+ 1: 1327 [0FA3] 00 00 C0 7F              -     dl    0x7FC00000;
+ 1: 1328 [0FA7] 00 00 00 7E              -     dl    0x7E000000;
+ 1: 1329 [0FAB] 00 00 00 70              -     dl    0x70000000;
+ 1: 1331 [0FAF]                          - 
+ 1: 1331 [0FAF]                          - display_biases        equ     $;
+ 1: 1332 [0FAF] 00 00 00 00 00 00 01 01  -     db    0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3;
+ 1: 1332 [0FB7] 02 02 02 03 03           - 
+ 1: 1334 [0FBC]                          - 
+ 1: 1335 [0FBC]                          - 
+ 1: 1335 [0FBC]                          - I_display_pattern_sets        equ     $;
+ 1: 1336 [0FBC] 00 00 0E 00 00 00 00 00  -     dw    0x0000,   0x000E,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1337 [0FC4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1338 [0FCC] 00 00 0E 00 00 00 00 00  -     dw    0x0000,   0x000E,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1339 [0FD4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1340 [0FDC] 00 00 7E 00 00 00 00 00  -     dw    0x0000,   0x007E,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1341 [0FE4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1342 [0FEC] 00 00 7E 00 00 00 00 00  -     dw    0x0000,   0x007E,   0x0000,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1343 [0FF4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1344 [0FFC] 00 00 FE 03 00 00 00 00  -     dw    0x0000,   0x03FE,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1345 [1004] 0E 00 0E 00 0E 00 0E 00  -     dw    0x000E,   0x000E,   0x000E,   0x000E;     // Offset  2  Rot 1
+                         - 
+ 1: 1346 [100C] 00 00 FE 03 00 00 00 00  -     dw    0x0000,   0x03FE,   0x0000,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1347 [1014] 0E 00 0E 00 0E 00 0E 00  -     dw    0x000E,   0x000E,   0x000E,   0x000E;     // Offset  2  Rot 3
+                         - 
+ 1: 1348 [101C] 00 00 FE 1F 00 00 00 00  -     dw    0x0000,   0x1FFE,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1349 [1024] 70 00 70 00 70 00 70 00  -     dw    0x0070,   0x0070,   0x0070,   0x0070;     // Offset  3  Rot 1
+                         - 
+ 1: 1350 [102C] 00 00 FE 1F 00 00 00 00  -     dw    0x0000,   0x1FFE,   0x0000,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1351 [1034] 70 00 70 00 70 00 70 00  -     dw    0x0070,   0x0070,   0x0070,   0x0070;     // Offset  3  Rot 3
+                         - 
+ 1: 1352 [103C] 00 00 F0 FF 00 00 00 00  -     dw    0x0000,   0xFFF0,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1353 [1044] 80 03 80 03 80 03 80 03  -     dw    0x0380,   0x0380,   0x0380,   0x0380;     // Offset  4  Rot 1
+                         - 
+ 1: 1354 [104C] 00 00 F0 FF 00 00 00 00  -     dw    0x0000,   0xFFF0,   0x0000,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1355 [1054] 80 03 80 03 80 03 80 03  -     dw    0x0380,   0x0380,   0x0380,   0x0380;     // Offset  4  Rot 3
+                         - 
+ 1: 1356 [105C] 00 00 80 FF 00 00 00 00  -     dw    0x0000,   0xFF80,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1357 [1064] 00 1C 00 1C 00 1C 00 1C  -     dw    0x1C00,   0x1C00,   0x1C00,   0x1C00;     // Offset  5  Rot 1
+                         - 
+ 1: 1358 [106C] 00 00 80 FF 00 00 00 00  -     dw    0x0000,   0xFF80,   0x0000,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1359 [1074] 00 1C 00 1C 00 1C 00 1C  -     dw    0x1C00,   0x1C00,   0x1C00,   0x1C00;     // Offset  5  Rot 3
+                         - 
+ 1: 1360 [107C] 00 00 FC 3F 00 00 00 00  -     dw    0x0000,   0x3FFC,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1361 [1084] E0 00 E0 00 E0 00 E0 00  -     dw    0x00E0,   0x00E0,   0x00E0,   0x00E0;     // Offset  6  Rot 1
+                         - 
+ 1: 1362 [108C] 00 00 FC 3F 00 00 00 00  -     dw    0x0000,   0x3FFC,   0x0000,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1363 [1094] E0 00 E0 00 E0 00 E0 00  -     dw    0x00E0,   0x00E0,   0x00E0,   0x00E0;     // Offset  6  Rot 3
+                         - 
+ 1: 1364 [109C] 00 00 E0 FF 00 00 00 00  -     dw    0x0000,   0xFFE0,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1365 [10A4] 00 07 00 07 00 07 00 07  -     dw    0x0700,   0x0700,   0x0700,   0x0700;     // Offset  7  Rot 1
+                         - 
+ 1: 1366 [10AC] 00 00 E0 FF 00 00 00 00  -     dw    0x0000,   0xFFE0,   0x0000,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1367 [10B4] 00 07 00 07 00 07 00 07  -     dw    0x0700,   0x0700,   0x0700,   0x0700;     // Offset  7  Rot 3
+                         - 
+ 1: 1368 [10BC] 00 00 FF 0F 00 00 00 00  -     dw    0x0000,   0x0FFF,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1369 [10C4] 38 00 38 00 38 00 38 00  -     dw    0x0038,   0x0038,   0x0038,   0x0038;     // Offset  8  Rot 1
+                         - 
+ 1: 1370 [10CC] 00 00 FF 0F 00 00 00 00  -     dw    0x0000,   0x0FFF,   0x0000,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1371 [10D4] 38 00 38 00 38 00 38 00  -     dw    0x0038,   0x0038,   0x0038,   0x0038;     // Offset  8  Rot 3
+                         - 
+ 1: 1372 [10DC] 00 00 F8 7F 00 00 00 00  -     dw    0x0000,   0x7FF8,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1373 [10E4] C0 01 C0 01 C0 01 C0 01  -     dw    0x01C0,   0x01C0,   0x01C0,   0x01C0;     // Offset  9  Rot 1
+                         - 
+ 1: 1374 [10EC] 00 00 F8 7F 00 00 00 00  -     dw    0x0000,   0x7FF8,   0x0000,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1375 [10F4] C0 01 C0 01 C0 01 C0 01  -     dw    0x01C0,   0x01C0,   0x01C0,   0x01C0;     // Offset  9  Rot 3
+                         - 
+ 1: 1376 [10FC] 00 00 C0 7F 00 00 00 00  -     dw    0x0000,   0x7FC0,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1377 [1104] 00 0E 00 0E 00 0E 00 0E  -     dw    0x0E00,   0x0E00,   0x0E00,   0x0E00;     // Offset 10  Rot 1
+                         - 
+ 1: 1378 [110C] 00 00 C0 7F 00 00 00 00  -     dw    0x0000,   0x7FC0,   0x0000,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1379 [1114] 00 0E 00 0E 00 0E 00 0E  -     dw    0x0E00,   0x0E00,   0x0E00,   0x0E00;     // Offset 10  Rot 3
+                         - 
+ 1: 1380 [111C] 00 00 7E 00 00 00 00 00  -     dw    0x0000,   0x007E,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1381 [1124] 70 00 70 00 70 00 70 00  -     dw    0x0070,   0x0070,   0x0070,   0x0070;     // Offset 11  Rot 1
+                         - 
+ 1: 1382 [112C] 00 00 7E 00 00 00 00 00  -     dw    0x0000,   0x007E,   0x0000,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1383 [1134] 70 00 70 00 70 00 70 00  -     dw    0x0070,   0x0070,   0x0070,   0x0070;     // Offset 11  Rot 3
+                         - 
+ 1: 1384 [113C] 00 00 70 00 00 00 00 00  -     dw    0x0000,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1385 [1144] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1386 [114C] 00 00 70 00 00 00 00 00  -     dw    0x0000,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1387 [1154] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1389 [115C]                          - 
+ 1: 1389 [115C]                          - O_display_pattern_sets        equ     $;
+ 1: 1390 [115C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1391 [1164] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1392 [116C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1393 [1174] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1394 [117C] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1395 [1184] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1396 [118C] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1397 [1194] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1398 [119C] 7E 00 7E 00 00 00 00 00  -     dw    0x007E,   0x007E,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1399 [11A4] 7E 00 7E 00 00 00 00 00  -     dw    0x007E,   0x007E,   0x0000,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1400 [11AC] 7E 00 7E 00 00 00 00 00  -     dw    0x007E,   0x007E,   0x0000,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1401 [11B4] 7E 00 7E 00 00 00 00 00  -     dw    0x007E,   0x007E,   0x0000,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1402 [11BC] F0 03 F0 03 00 00 00 00  -     dw    0x03F0,   0x03F0,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1403 [11C4] F0 03 F0 03 00 00 00 00  -     dw    0x03F0,   0x03F0,   0x0000,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1404 [11CC] F0 03 F0 03 00 00 00 00  -     dw    0x03F0,   0x03F0,   0x0000,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1405 [11D4] F0 03 F0 03 00 00 00 00  -     dw    0x03F0,   0x03F0,   0x0000,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1406 [11DC] 80 1F 80 1F 00 00 00 00  -     dw    0x1F80,   0x1F80,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1407 [11E4] 80 1F 80 1F 00 00 00 00  -     dw    0x1F80,   0x1F80,   0x0000,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1408 [11EC] 80 1F 80 1F 00 00 00 00  -     dw    0x1F80,   0x1F80,   0x0000,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1409 [11F4] 80 1F 80 1F 00 00 00 00  -     dw    0x1F80,   0x1F80,   0x0000,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1410 [11FC] 00 FC 00 FC 00 00 00 00  -     dw    0xFC00,   0xFC00,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1411 [1204] 00 FC 00 FC 00 00 00 00  -     dw    0xFC00,   0xFC00,   0x0000,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1412 [120C] 00 FC 00 FC 00 00 00 00  -     dw    0xFC00,   0xFC00,   0x0000,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1413 [1214] 00 FC 00 FC 00 00 00 00  -     dw    0xFC00,   0xFC00,   0x0000,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1414 [121C] E0 07 E0 07 00 00 00 00  -     dw    0x07E0,   0x07E0,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1415 [1224] E0 07 E0 07 00 00 00 00  -     dw    0x07E0,   0x07E0,   0x0000,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1416 [122C] E0 07 E0 07 00 00 00 00  -     dw    0x07E0,   0x07E0,   0x0000,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1417 [1234] E0 07 E0 07 00 00 00 00  -     dw    0x07E0,   0x07E0,   0x0000,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1418 [123C] 00 3F 00 3F 00 00 00 00  -     dw    0x3F00,   0x3F00,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1419 [1244] 00 3F 00 3F 00 00 00 00  -     dw    0x3F00,   0x3F00,   0x0000,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1420 [124C] 00 3F 00 3F 00 00 00 00  -     dw    0x3F00,   0x3F00,   0x0000,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1421 [1254] 00 3F 00 3F 00 00 00 00  -     dw    0x3F00,   0x3F00,   0x0000,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1422 [125C] F8 01 F8 01 00 00 00 00  -     dw    0x01F8,   0x01F8,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1423 [1264] F8 01 F8 01 00 00 00 00  -     dw    0x01F8,   0x01F8,   0x0000,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1424 [126C] F8 01 F8 01 00 00 00 00  -     dw    0x01F8,   0x01F8,   0x0000,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1425 [1274] F8 01 F8 01 00 00 00 00  -     dw    0x01F8,   0x01F8,   0x0000,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1426 [127C] C0 0F C0 0F 00 00 00 00  -     dw    0x0FC0,   0x0FC0,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1427 [1284] C0 0F C0 0F 00 00 00 00  -     dw    0x0FC0,   0x0FC0,   0x0000,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1428 [128C] C0 0F C0 0F 00 00 00 00  -     dw    0x0FC0,   0x0FC0,   0x0000,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1429 [1294] C0 0F C0 0F 00 00 00 00  -     dw    0x0FC0,   0x0FC0,   0x0000,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1430 [129C] 00 7E 00 7E 00 00 00 00  -     dw    0x7E00,   0x7E00,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1431 [12A4] 00 7E 00 7E 00 00 00 00  -     dw    0x7E00,   0x7E00,   0x0000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1432 [12AC] 00 7E 00 7E 00 00 00 00  -     dw    0x7E00,   0x7E00,   0x0000,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1433 [12B4] 00 7E 00 7E 00 00 00 00  -     dw    0x7E00,   0x7E00,   0x0000,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1434 [12BC] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1435 [12C4] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1436 [12CC] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1437 [12D4] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1438 [12DC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1439 [12E4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1440 [12EC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1441 [12F4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1443 [12FC]                          - 
+ 1: 1443 [12FC]                          - T_display_pattern_sets        equ     $;
+ 1: 1444 [12FC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1445 [1304] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1446 [130C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1447 [1314] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1448 [131C] 0E 00 00 00 00 00 00 00  -     dw    0x000E,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1449 [1324] 0E 00 0E 00 0E 00 00 00  -     dw    0x000E,   0x000E,   0x000E,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1450 [132C] 00 00 00 00 0E 00 00 00  -     dw    0x0000,   0x0000,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1451 [1334] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1452 [133C] 7E 00 0E 00 00 00 00 00  -     dw    0x007E,   0x000E,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1453 [1344] 70 00 7E 00 70 00 00 00  -     dw    0x0070,   0x007E,   0x0070,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1454 [134C] 00 00 0E 00 7E 00 00 00  -     dw    0x0000,   0x000E,   0x007E,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1455 [1354] 00 00 0E 00 00 00 00 00  -     dw    0x0000,   0x000E,   0x0000,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1456 [135C] FE 03 70 00 00 00 00 00  -     dw    0x03FE,   0x0070,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1457 [1364] 80 03 F0 03 80 03 00 00  -     dw    0x0380,   0x03F0,   0x0380,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1458 [136C] 00 00 70 00 FE 03 00 00  -     dw    0x0000,   0x0070,   0x03FE,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1459 [1374] 0E 00 7E 00 0E 00 00 00  -     dw    0x000E,   0x007E,   0x000E,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1460 [137C] F0 1F 80 03 00 00 00 00  -     dw    0x1FF0,   0x0380,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1461 [1384] 00 1C 80 1F 00 1C 00 00  -     dw    0x1C00,   0x1F80,   0x1C00,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1462 [138C] 00 00 80 03 F0 1F 00 00  -     dw    0x0000,   0x0380,   0x1FF0,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1463 [1394] 70 00 F0 03 70 00 00 00  -     dw    0x0070,   0x03F0,   0x0070,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1464 [139C] 80 FF 00 1C 00 00 00 00  -     dw    0xFF80,   0x1C00,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1465 [13A4] 00 E0 00 FC 00 E0 00 00  -     dw    0xE000,   0xFC00,   0xE000,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1466 [13AC] 00 00 00 1C 80 FF 00 00  -     dw    0x0000,   0x1C00,   0xFF80,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1467 [13B4] 80 03 80 1F 80 03 00 00  -     dw    0x0380,   0x1F80,   0x0380,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1468 [13BC] FC 07 E0 00 00 00 00 00  -     dw    0x07FC,   0x00E0,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1469 [13C4] 00 07 E0 07 00 07 00 00  -     dw    0x0700,   0x07E0,   0x0700,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1470 [13CC] 00 00 E0 00 FC 07 00 00  -     dw    0x0000,   0x00E0,   0x07FC,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1471 [13D4] 1C 00 FC 00 1C 00 00 00  -     dw    0x001C,   0x00FC,   0x001C,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1472 [13DC] E0 3F 00 07 00 00 00 00  -     dw    0x3FE0,   0x0700,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1473 [13E4] 00 38 00 3F 00 38 00 00  -     dw    0x3800,   0x3F00,   0x3800,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1474 [13EC] 00 00 00 07 E0 3F 00 00  -     dw    0x0000,   0x0700,   0x3FE0,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1475 [13F4] E0 00 E0 07 E0 00 00 00  -     dw    0x00E0,   0x07E0,   0x00E0,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1476 [13FC] FF 01 38 00 00 00 00 00  -     dw    0x01FF,   0x0038,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1477 [1404] C0 01 F8 01 C0 01 00 00  -     dw    0x01C0,   0x01F8,   0x01C0,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1478 [140C] 00 00 38 00 FF 01 00 00  -     dw    0x0000,   0x0038,   0x01FF,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1479 [1414] 07 00 3F 00 07 00 00 00  -     dw    0x0007,   0x003F,   0x0007,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1480 [141C] F8 0F C0 01 00 00 00 00  -     dw    0x0FF8,   0x01C0,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1481 [1424] 00 0E C0 0F 00 0E 00 00  -     dw    0x0E00,   0x0FC0,   0x0E00,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1482 [142C] 00 00 C0 01 F8 0F 00 00  -     dw    0x0000,   0x01C0,   0x0FF8,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1483 [1434] 38 00 F8 01 38 00 00 00  -     dw    0x0038,   0x01F8,   0x0038,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1484 [143C] C0 7F 00 0E 00 00 00 00  -     dw    0x7FC0,   0x0E00,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1485 [1444] 00 70 00 7E 00 70 00 00  -     dw    0x7000,   0x7E00,   0x7000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1486 [144C] 00 00 00 0E C0 7F 00 00  -     dw    0x0000,   0x0E00,   0x7FC0,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1487 [1454] C0 01 C0 0F C0 01 00 00  -     dw    0x01C0,   0x0FC0,   0x01C0,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1488 [145C] 7E 00 70 00 00 00 00 00  -     dw    0x007E,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1489 [1464] 00 00 70 00 00 00 00 00  -     dw    0x0000,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1490 [146C] 00 00 70 00 7E 00 00 00  -     dw    0x0000,   0x0070,   0x007E,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1491 [1474] 0E 00 7E 00 0E 00 00 00  -     dw    0x000E,   0x007E,   0x000E,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1492 [147C] 70 00 00 00 00 00 00 00  -     dw    0x0070,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1493 [1484] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1494 [148C] 00 00 00 00 70 00 00 00  -     dw    0x0000,   0x0000,   0x0070,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1495 [1494] 70 00 70 00 70 00 00 00  -     dw    0x0070,   0x0070,   0x0070,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1497 [149C]                          - 
+ 1: 1497 [149C]                          - S_display_pattern_sets        equ     $;
+ 1: 1498 [149C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1499 [14A4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1500 [14AC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1501 [14B4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1502 [14BC] 00 00 0E 00 00 00 00 00  -     dw    0x0000,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1503 [14C4] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1504 [14CC] 00 00 00 00 0E 00 00 00  -     dw    0x0000,   0x0000,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1505 [14D4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1506 [14DC] 0E 00 7E 00 00 00 00 00  -     dw    0x000E,   0x007E,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1507 [14E4] 70 00 7E 00 0E 00 00 00  -     dw    0x0070,   0x007E,   0x000E,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1508 [14EC] 00 00 0E 00 7E 00 00 00  -     dw    0x0000,   0x000E,   0x007E,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1509 [14F4] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1510 [14FC] 7E 00 F0 03 00 00 00 00  -     dw    0x007E,   0x03F0,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1511 [1504] 80 03 F0 03 70 00 00 00  -     dw    0x0380,   0x03F0,   0x0070,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1512 [150C] 00 00 7E 00 F0 03 00 00  -     dw    0x0000,   0x007E,   0x03F0,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1513 [1514] 70 00 7E 00 0E 00 00 00  -     dw    0x0070,   0x007E,   0x000E,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1514 [151C] F0 03 80 1F 00 00 00 00  -     dw    0x03F0,   0x1F80,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1515 [1524] 00 1C 80 1F 80 03 00 00  -     dw    0x1C00,   0x1F80,   0x0380,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1516 [152C] 00 00 F0 03 80 1F 00 00  -     dw    0x0000,   0x03F0,   0x1F80,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1517 [1534] 80 03 F0 03 70 00 00 00  -     dw    0x0380,   0x03F0,   0x0070,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1518 [153C] 80 1F 00 FC 00 00 00 00  -     dw    0x1F80,   0xFC00,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1519 [1544] 00 E0 00 FC 00 1C 00 00  -     dw    0xE000,   0xFC00,   0x1C00,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1520 [154C] 00 00 80 1F 00 FC 00 00  -     dw    0x0000,   0x1F80,   0xFC00,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1521 [1554] 00 1C 80 1F 80 03 00 00  -     dw    0x1C00,   0x1F80,   0x0380,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1522 [155C] FC 00 E0 07 00 00 00 00  -     dw    0x00FC,   0x07E0,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1523 [1564] 00 07 E0 07 E0 00 00 00  -     dw    0x0700,   0x07E0,   0x00E0,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1524 [156C] 00 00 FC 00 E0 07 00 00  -     dw    0x0000,   0x00FC,   0x07E0,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1525 [1574] E0 00 FC 00 1C 00 00 00  -     dw    0x00E0,   0x00FC,   0x001C,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1526 [157C] E0 07 00 3F 00 00 00 00  -     dw    0x07E0,   0x3F00,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1527 [1584] 00 38 00 3F 00 07 00 00  -     dw    0x3800,   0x3F00,   0x0700,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1528 [158C] 00 00 E0 07 00 3F 00 00  -     dw    0x0000,   0x07E0,   0x3F00,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1529 [1594] 00 07 E0 07 E0 00 00 00  -     dw    0x0700,   0x07E0,   0x00E0,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1530 [159C] 3F 00 F8 01 00 00 00 00  -     dw    0x003F,   0x01F8,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1531 [15A4] C0 01 F8 01 38 00 00 00  -     dw    0x01C0,   0x01F8,   0x0038,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1532 [15AC] 00 00 3F 00 F8 01 00 00  -     dw    0x0000,   0x003F,   0x01F8,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1533 [15B4] 38 00 3F 00 07 00 00 00  -     dw    0x0038,   0x003F,   0x0007,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1534 [15BC] F8 01 C0 0F 00 00 00 00  -     dw    0x01F8,   0x0FC0,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1535 [15C4] 00 0E C0 0F C0 01 00 00  -     dw    0x0E00,   0x0FC0,   0x01C0,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1536 [15CC] 00 00 F8 01 C0 0F 00 00  -     dw    0x0000,   0x01F8,   0x0FC0,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1537 [15D4] C0 01 F8 01 38 00 00 00  -     dw    0x01C0,   0x01F8,   0x0038,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1538 [15DC] C0 0F 00 7E 00 00 00 00  -     dw    0x0FC0,   0x7E00,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1539 [15E4] 00 70 00 7E 00 0E 00 00  -     dw    0x7000,   0x7E00,   0x0E00,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1540 [15EC] 00 00 C0 0F 00 7E 00 00  -     dw    0x0000,   0x0FC0,   0x7E00,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1541 [15F4] 00 0E C0 0F C0 01 00 00  -     dw    0x0E00,   0x0FC0,   0x01C0,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1542 [15FC] 7E 00 70 00 00 00 00 00  -     dw    0x007E,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1543 [1604] 00 00 70 00 70 00 00 00  -     dw    0x0000,   0x0070,   0x0070,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1544 [160C] 00 00 7E 00 70 00 00 00  -     dw    0x0000,   0x007E,   0x0070,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1545 [1614] 70 00 7E 00 0E 00 00 00  -     dw    0x0070,   0x007E,   0x000E,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1546 [161C] 70 00 00 00 00 00 00 00  -     dw    0x0070,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1547 [1624] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1548 [162C] 00 00 70 00 00 00 00 00  -     dw    0x0000,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1549 [1634] 00 00 70 00 70 00 00 00  -     dw    0x0000,   0x0070,   0x0070,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1551 [163C]                          - 
+ 1: 1551 [163C]                          - Z_display_pattern_sets        equ     $;
+ 1: 1552 [163C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1553 [1644] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1554 [164C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1555 [1654] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1556 [165C] 0E 00 00 00 00 00 00 00  -     dw    0x000E,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1557 [1664] 00 00 0E 00 0E 00 00 00  -     dw    0x0000,   0x000E,   0x000E,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1558 [166C] 00 00 0E 00 00 00 00 00  -     dw    0x0000,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1559 [1674] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1560 [167C] 7E 00 0E 00 00 00 00 00  -     dw    0x007E,   0x000E,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1561 [1684] 0E 00 7E 00 70 00 00 00  -     dw    0x000E,   0x007E,   0x0070,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1562 [168C] 00 00 7E 00 0E 00 00 00  -     dw    0x0000,   0x007E,   0x000E,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1563 [1694] 00 00 0E 00 0E 00 00 00  -     dw    0x0000,   0x000E,   0x000E,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1564 [169C] F0 03 7E 00 00 00 00 00  -     dw    0x03F0,   0x007E,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1565 [16A4] 70 00 F0 03 80 03 00 00  -     dw    0x0070,   0x03F0,   0x0380,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1566 [16AC] 00 00 F0 03 7E 00 00 00  -     dw    0x0000,   0x03F0,   0x007E,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1567 [16B4] 0E 00 7E 00 70 00 00 00  -     dw    0x000E,   0x007E,   0x0070,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1568 [16BC] 80 1F F0 03 00 00 00 00  -     dw    0x1F80,   0x03F0,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1569 [16C4] 80 03 80 1F 00 1C 00 00  -     dw    0x0380,   0x1F80,   0x1C00,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1570 [16CC] 00 00 80 1F F0 03 00 00  -     dw    0x0000,   0x1F80,   0x03F0,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1571 [16D4] 70 00 F0 03 80 03 00 00  -     dw    0x0070,   0x03F0,   0x0380,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1572 [16DC] 00 FC 80 1F 00 00 00 00  -     dw    0xFC00,   0x1F80,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1573 [16E4] 00 1C 00 FC 00 E0 00 00  -     dw    0x1C00,   0xFC00,   0xE000,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1574 [16EC] 00 00 00 FC 80 1F 00 00  -     dw    0x0000,   0xFC00,   0x1F80,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1575 [16F4] 80 03 80 1F 00 1C 00 00  -     dw    0x0380,   0x1F80,   0x1C00,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1576 [16FC] E0 07 FC 00 00 00 00 00  -     dw    0x07E0,   0x00FC,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1577 [1704] E0 00 E0 07 00 07 00 00  -     dw    0x00E0,   0x07E0,   0x0700,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1578 [170C] 00 00 E0 07 FC 00 00 00  -     dw    0x0000,   0x07E0,   0x00FC,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1579 [1714] 1C 00 FC 00 E0 00 00 00  -     dw    0x001C,   0x00FC,   0x00E0,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1580 [171C] 00 3F E0 07 00 00 00 00  -     dw    0x3F00,   0x07E0,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1581 [1724] 00 07 00 3F 00 38 00 00  -     dw    0x0700,   0x3F00,   0x3800,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1582 [172C] 00 00 00 3F E0 07 00 00  -     dw    0x0000,   0x3F00,   0x07E0,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1583 [1734] E0 00 E0 07 00 07 00 00  -     dw    0x00E0,   0x07E0,   0x0700,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1584 [173C] F8 01 3F 00 00 00 00 00  -     dw    0x01F8,   0x003F,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1585 [1744] 38 00 F8 01 C0 01 00 00  -     dw    0x0038,   0x01F8,   0x01C0,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1586 [174C] 00 00 F8 01 3F 00 00 00  -     dw    0x0000,   0x01F8,   0x003F,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1587 [1754] 07 00 3F 00 38 00 00 00  -     dw    0x0007,   0x003F,   0x0038,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1588 [175C] C0 0F F8 01 00 00 00 00  -     dw    0x0FC0,   0x01F8,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1589 [1764] C0 01 C0 0F 00 0E 00 00  -     dw    0x01C0,   0x0FC0,   0x0E00,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1590 [176C] 00 00 C0 0F F8 01 00 00  -     dw    0x0000,   0x0FC0,   0x01F8,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1591 [1774] 38 00 F8 01 C0 01 00 00  -     dw    0x0038,   0x01F8,   0x01C0,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1592 [177C] 00 7E C0 0F 00 00 00 00  -     dw    0x7E00,   0x0FC0,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1593 [1784] 00 0E 00 7E 00 70 00 00  -     dw    0x0E00,   0x7E00,   0x7000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1594 [178C] 00 00 00 7E C0 0F 00 00  -     dw    0x0000,   0x7E00,   0x0FC0,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1595 [1794] C0 01 C0 0F 00 0E 00 00  -     dw    0x01C0,   0x0FC0,   0x0E00,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1596 [179C] 70 00 7E 00 00 00 00 00  -     dw    0x0070,   0x007E,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1597 [17A4] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1598 [17AC] 00 00 70 00 7E 00 00 00  -     dw    0x0000,   0x0070,   0x007E,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1599 [17B4] 0E 00 7E 00 70 00 00 00  -     dw    0x000E,   0x007E,   0x0070,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1600 [17BC] 00 00 70 00 00 00 00 00  -     dw    0x0000,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1601 [17C4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1602 [17CC] 00 00 00 00 70 00 00 00  -     dw    0x0000,   0x0000,   0x0070,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1603 [17D4] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1605 [17DC]                          - 
+ 1: 1605 [17DC]                          - J_display_pattern_sets        equ     $;
+ 1: 1606 [17DC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1607 [17E4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1608 [17EC] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1609 [17F4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1610 [17FC] 0E 00 0E 00 00 00 00 00  -     dw    0x000E,   0x000E,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1611 [1804] 0E 00 0E 00 0E 00 00 00  -     dw    0x000E,   0x000E,   0x000E,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1612 [180C] 00 00 00 00 0E 00 00 00  -     dw    0x0000,   0x0000,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1613 [1814] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1614 [181C] 7E 00 70 00 00 00 00 00  -     dw    0x007E,   0x0070,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1615 [1824] 70 00 70 00 7E 00 00 00  -     dw    0x0070,   0x0070,   0x007E,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1616 [182C] 00 00 00 00 7E 00 00 00  -     dw    0x0000,   0x0000,   0x007E,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1617 [1834] 0E 00 00 00 00 00 00 00  -     dw    0x000E,   0x0000,   0x0000,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1618 [183C] FE 03 80 03 00 00 00 00  -     dw    0x03FE,   0x0380,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1619 [1844] 80 03 80 03 F0 03 00 00  -     dw    0x0380,   0x0380,   0x03F0,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1620 [184C] 00 00 0E 00 FE 03 00 00  -     dw    0x0000,   0x000E,   0x03FE,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1621 [1854] 7E 00 0E 00 0E 00 00 00  -     dw    0x007E,   0x000E,   0x000E,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1622 [185C] F0 1F 00 1C 00 00 00 00  -     dw    0x1FF0,   0x1C00,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1623 [1864] 00 1C 00 1C 80 1F 00 00  -     dw    0x1C00,   0x1C00,   0x1F80,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1624 [186C] 00 00 70 00 F0 1F 00 00  -     dw    0x0000,   0x0070,   0x1FF0,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1625 [1874] F0 03 70 00 70 00 00 00  -     dw    0x03F0,   0x0070,   0x0070,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1626 [187C] 80 FF 00 E0 00 00 00 00  -     dw    0xFF80,   0xE000,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1627 [1884] 00 E0 00 E0 00 FC 00 00  -     dw    0xE000,   0xE000,   0xFC00,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1628 [188C] 00 00 80 03 80 FF 00 00  -     dw    0x0000,   0x0380,   0xFF80,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1629 [1894] 80 1F 80 03 80 03 00 00  -     dw    0x1F80,   0x0380,   0x0380,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1630 [189C] FC 07 00 07 00 00 00 00  -     dw    0x07FC,   0x0700,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1631 [18A4] 00 07 00 07 E0 07 00 00  -     dw    0x0700,   0x0700,   0x07E0,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1632 [18AC] 00 00 1C 00 FC 07 00 00  -     dw    0x0000,   0x001C,   0x07FC,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1633 [18B4] FC 00 1C 00 1C 00 00 00  -     dw    0x00FC,   0x001C,   0x001C,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1634 [18BC] E0 3F 00 38 00 00 00 00  -     dw    0x3FE0,   0x3800,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1635 [18C4] 00 38 00 38 00 3F 00 00  -     dw    0x3800,   0x3800,   0x3F00,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1636 [18CC] 00 00 E0 00 E0 3F 00 00  -     dw    0x0000,   0x00E0,   0x3FE0,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1637 [18D4] E0 07 E0 00 E0 00 00 00  -     dw    0x07E0,   0x00E0,   0x00E0,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1638 [18DC] FF 01 C0 01 00 00 00 00  -     dw    0x01FF,   0x01C0,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1639 [18E4] C0 01 C0 01 F8 01 00 00  -     dw    0x01C0,   0x01C0,   0x01F8,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1640 [18EC] 00 00 07 00 FF 01 00 00  -     dw    0x0000,   0x0007,   0x01FF,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1641 [18F4] 3F 00 07 00 07 00 00 00  -     dw    0x003F,   0x0007,   0x0007,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1642 [18FC] F8 0F 00 0E 00 00 00 00  -     dw    0x0FF8,   0x0E00,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1643 [1904] 00 0E 00 0E C0 0F 00 00  -     dw    0x0E00,   0x0E00,   0x0FC0,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1644 [190C] 00 00 38 00 F8 0F 00 00  -     dw    0x0000,   0x0038,   0x0FF8,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1645 [1914] F8 01 38 00 38 00 00 00  -     dw    0x01F8,   0x0038,   0x0038,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1646 [191C] C0 7F 00 70 00 00 00 00  -     dw    0x7FC0,   0x7000,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1647 [1924] 00 70 00 70 00 7E 00 00  -     dw    0x7000,   0x7000,   0x7E00,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1648 [192C] 00 00 C0 01 C0 7F 00 00  -     dw    0x0000,   0x01C0,   0x7FC0,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1649 [1934] C0 0F C0 01 C0 01 00 00  -     dw    0x0FC0,   0x01C0,   0x01C0,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1650 [193C] 7E 00 00 00 00 00 00 00  -     dw    0x007E,   0x0000,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1651 [1944] 00 00 00 00 70 00 00 00  -     dw    0x0000,   0x0000,   0x0070,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1652 [194C] 00 00 0E 00 7E 00 00 00  -     dw    0x0000,   0x000E,   0x007E,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1653 [1954] 7E 00 0E 00 0E 00 00 00  -     dw    0x007E,   0x000E,   0x000E,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1654 [195C] 70 00 00 00 00 00 00 00  -     dw    0x0070,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1655 [1964] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1656 [196C] 00 00 70 00 70 00 00 00  -     dw    0x0000,   0x0070,   0x0070,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1657 [1974] 70 00 70 00 70 00 00 00  -     dw    0x0070,   0x0070,   0x0070,   0x0000;     // Offset 12  Rot 3
+                         - 
+ 1: 1659 [197C]                          - 
+ 1: 1659 [197C]                          - L_display_pattern_sets        equ     $;
+ 1: 1660 [197C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 0
+                         - 
+ 1: 1661 [1984] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 1
+                         - 
+ 1: 1662 [198C] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 2
+                         - 
+ 1: 1663 [1994] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  0  Rot 3
+                         - 
+ 1: 1664 [199C] 0E 00 00 00 00 00 00 00  -     dw    0x000E,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 0
+                         - 
+ 1: 1665 [19A4] 0E 00 0E 00 0E 00 00 00  -     dw    0x000E,   0x000E,   0x000E,   0x0000;     // Offset  1  Rot 1
+                         - 
+ 1: 1666 [19AC] 00 00 0E 00 0E 00 00 00  -     dw    0x0000,   0x000E,   0x000E,   0x0000;     // Offset  1  Rot 2
+                         - 
+ 1: 1667 [19B4] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset  1  Rot 3
+                         - 
+ 1: 1668 [19BC] 7E 00 00 00 00 00 00 00  -     dw    0x007E,   0x0000,   0x0000,   0x0000;     // Offset  2  Rot 0
+                         - 
+ 1: 1669 [19C4] 7E 00 70 00 70 00 00 00  -     dw    0x007E,   0x0070,   0x0070,   0x0000;     // Offset  2  Rot 1
+                         - 
+ 1: 1670 [19CC] 00 00 70 00 7E 00 00 00  -     dw    0x0000,   0x0070,   0x007E,   0x0000;     // Offset  2  Rot 2
+                         - 
+ 1: 1671 [19D4] 00 00 00 00 0E 00 00 00  -     dw    0x0000,   0x0000,   0x000E,   0x0000;     // Offset  2  Rot 3
+                         - 
+ 1: 1672 [19DC] FE 03 0E 00 00 00 00 00  -     dw    0x03FE,   0x000E,   0x0000,   0x0000;     // Offset  3  Rot 0
+                         - 
+ 1: 1673 [19E4] F0 03 80 03 80 03 00 00  -     dw    0x03F0,   0x0380,   0x0380,   0x0000;     // Offset  3  Rot 1
+                         - 
+ 1: 1674 [19EC] 00 00 80 03 FE 03 00 00  -     dw    0x0000,   0x0380,   0x03FE,   0x0000;     // Offset  3  Rot 2
+                         - 
+ 1: 1675 [19F4] 0E 00 0E 00 7E 00 00 00  -     dw    0x000E,   0x000E,   0x007E,   0x0000;     // Offset  3  Rot 3
+                         - 
+ 1: 1676 [19FC] F0 1F 70 00 00 00 00 00  -     dw    0x1FF0,   0x0070,   0x0000,   0x0000;     // Offset  4  Rot 0
+                         - 
+ 1: 1677 [1A04] 80 1F 00 1C 00 1C 00 00  -     dw    0x1F80,   0x1C00,   0x1C00,   0x0000;     // Offset  4  Rot 1
+                         - 
+ 1: 1678 [1A0C] 00 00 00 1C F0 1F 00 00  -     dw    0x0000,   0x1C00,   0x1FF0,   0x0000;     // Offset  4  Rot 2
+                         - 
+ 1: 1679 [1A14] 70 00 70 00 F0 03 00 00  -     dw    0x0070,   0x0070,   0x03F0,   0x0000;     // Offset  4  Rot 3
+                         - 
+ 1: 1680 [1A1C] 80 FF 80 03 00 00 00 00  -     dw    0xFF80,   0x0380,   0x0000,   0x0000;     // Offset  5  Rot 0
+                         - 
+ 1: 1681 [1A24] 00 FC 00 E0 00 E0 00 00  -     dw    0xFC00,   0xE000,   0xE000,   0x0000;     // Offset  5  Rot 1
+                         - 
+ 1: 1682 [1A2C] 00 00 00 E0 80 FF 00 00  -     dw    0x0000,   0xE000,   0xFF80,   0x0000;     // Offset  5  Rot 2
+                         - 
+ 1: 1683 [1A34] 80 03 80 03 80 1F 00 00  -     dw    0x0380,   0x0380,   0x1F80,   0x0000;     // Offset  5  Rot 3
+                         - 
+ 1: 1684 [1A3C] FC 07 1C 00 00 00 00 00  -     dw    0x07FC,   0x001C,   0x0000,   0x0000;     // Offset  6  Rot 0
+                         - 
+ 1: 1685 [1A44] E0 07 00 07 00 07 00 00  -     dw    0x07E0,   0x0700,   0x0700,   0x0000;     // Offset  6  Rot 1
+                         - 
+ 1: 1686 [1A4C] 00 00 00 07 FC 07 00 00  -     dw    0x0000,   0x0700,   0x07FC,   0x0000;     // Offset  6  Rot 2
+                         - 
+ 1: 1687 [1A54] 1C 00 1C 00 FC 00 00 00  -     dw    0x001C,   0x001C,   0x00FC,   0x0000;     // Offset  6  Rot 3
+                         - 
+ 1: 1688 [1A5C] E0 3F E0 00 00 00 00 00  -     dw    0x3FE0,   0x00E0,   0x0000,   0x0000;     // Offset  7  Rot 0
+                         - 
+ 1: 1689 [1A64] 00 3F 00 38 00 38 00 00  -     dw    0x3F00,   0x3800,   0x3800,   0x0000;     // Offset  7  Rot 1
+                         - 
+ 1: 1690 [1A6C] 00 00 00 38 E0 3F 00 00  -     dw    0x0000,   0x3800,   0x3FE0,   0x0000;     // Offset  7  Rot 2
+                         - 
+ 1: 1691 [1A74] E0 00 E0 00 E0 07 00 00  -     dw    0x00E0,   0x00E0,   0x07E0,   0x0000;     // Offset  7  Rot 3
+                         - 
+ 1: 1692 [1A7C] FF 01 07 00 00 00 00 00  -     dw    0x01FF,   0x0007,   0x0000,   0x0000;     // Offset  8  Rot 0
+                         - 
+ 1: 1693 [1A84] F8 01 C0 01 C0 01 00 00  -     dw    0x01F8,   0x01C0,   0x01C0,   0x0000;     // Offset  8  Rot 1
+                         - 
+ 1: 1694 [1A8C] 00 00 C0 01 FF 01 00 00  -     dw    0x0000,   0x01C0,   0x01FF,   0x0000;     // Offset  8  Rot 2
+                         - 
+ 1: 1695 [1A94] 07 00 07 00 3F 00 00 00  -     dw    0x0007,   0x0007,   0x003F,   0x0000;     // Offset  8  Rot 3
+                         - 
+ 1: 1696 [1A9C] F8 0F 38 00 00 00 00 00  -     dw    0x0FF8,   0x0038,   0x0000,   0x0000;     // Offset  9  Rot 0
+                         - 
+ 1: 1697 [1AA4] C0 0F 00 0E 00 0E 00 00  -     dw    0x0FC0,   0x0E00,   0x0E00,   0x0000;     // Offset  9  Rot 1
+                         - 
+ 1: 1698 [1AAC] 00 00 00 0E F8 0F 00 00  -     dw    0x0000,   0x0E00,   0x0FF8,   0x0000;     // Offset  9  Rot 2
+                         - 
+ 1: 1699 [1AB4] 38 00 38 00 F8 01 00 00  -     dw    0x0038,   0x0038,   0x01F8,   0x0000;     // Offset  9  Rot 3
+                         - 
+ 1: 1700 [1ABC] C0 7F C0 01 00 00 00 00  -     dw    0x7FC0,   0x01C0,   0x0000,   0x0000;     // Offset 10  Rot 0
+                         - 
+ 1: 1701 [1AC4] 00 7E 00 70 00 70 00 00  -     dw    0x7E00,   0x7000,   0x7000,   0x0000;     // Offset 10  Rot 1
+                         - 
+ 1: 1702 [1ACC] 00 00 00 70 C0 7F 00 00  -     dw    0x0000,   0x7000,   0x7FC0,   0x0000;     // Offset 10  Rot 2
+                         - 
+ 1: 1703 [1AD4] C0 01 C0 01 C0 0F 00 00  -     dw    0x01C0,   0x01C0,   0x0FC0,   0x0000;     // Offset 10  Rot 3
+                         - 
+ 1: 1704 [1ADC] 7E 00 0E 00 00 00 00 00  -     dw    0x007E,   0x000E,   0x0000,   0x0000;     // Offset 11  Rot 0
+                         - 
+ 1: 1705 [1AE4] 70 00 00 00 00 00 00 00  -     dw    0x0070,   0x0000,   0x0000,   0x0000;     // Offset 11  Rot 1
+                         - 
+ 1: 1706 [1AEC] 00 00 00 00 7E 00 00 00  -     dw    0x0000,   0x0000,   0x007E,   0x0000;     // Offset 11  Rot 2
+                         - 
+ 1: 1707 [1AF4] 0E 00 0E 00 7E 00 00 00  -     dw    0x000E,   0x000E,   0x007E,   0x0000;     // Offset 11  Rot 3
+                         - 
+ 1: 1708 [1AFC] 70 00 70 00 00 00 00 00  -     dw    0x0070,   0x0070,   0x0000,   0x0000;     // Offset 12  Rot 0
+                         - 
+ 1: 1709 [1B04] 00 00 00 00 00 00 00 00  -     dw    0x0000,   0x0000,   0x0000,   0x0000;     // Offset 12  Rot 1
+                         - 
+ 1: 1710 [1B0C] 00 00 00 00 70 00 00 00  -     dw    0x0000,   0x0000,   0x0070,   0x0000;     // Offset 12  Rot 2
+                         - 
+ 1: 1711 [1B14] 70 00 70 00 70 00 00 00  -     dw    0x0070,   0x0070,   0x0070,   0x0000;     // Offset 12  Rot 3
+                         - 
+                         - 
+                         BOARD_CELL_SETS  = 0x00000010,       16   : Integer. Decl File  1, Line   92
+                             BOARD_WALLS  = 0x0000E007,    57351   : Integer. Decl File  1, Line  118
+                           CALC_POINTERS  = 0x00000329,      809   : Integer. Decl File  1, Line  737
+                               CHECK_KEY  = 0x0000019A,      410   : Integer. Decl File  1, Line  407
+                                CLR_LOOP  = 0x00000114,      276   : Integer. Decl File  1, Line  291
+                         CREATE_NEXT_TET  = 0x00000138,      312   : Integer. Decl File  1, Line  326
+                      CURRENT_BOARD_POSN  = 0x00000050,       80   : Integer. Decl File  1, Line  135
+                    CURRENT_CELL_PATTERN  = 0x0000004E,       78   : Integer. Decl File  1, Line  134
+                CURRENT_CELL_PATTERN_SET  = 0x00000043,       67   : Integer. Decl File  1, Line  127
+                 CURRENT_DISPLAY_PATTERN  = 0x00000046,       70   : Integer. Decl File  1, Line  129
+             CURRENT_DISPLAY_PATTERN_SET  = 0x00000041,       65   : Integer. Decl File  1, Line  126
+             CURRENT_DISPLAY_POSN_BIASED  = 0x00000048,       72   : Integer. Decl File  1, Line  130
+                CURRENT_DISPLAY_POSN_RAW  = 0x0000004A,       74   : Integer. Decl File  1, Line  131
+                            CURRENT_ROTN  = 0x00000045,       69   : Integer. Decl File  1, Line  128
+                            CURRENT_TYPE  = 0x00000040,       64   : Integer. Decl File  1, Line  125
+                               CURRENT_X  = 0x0000004C,       76   : Integer. Decl File  1, Line  132
+                               CURRENT_Y  = 0x0000004D,       77   : Integer. Decl File  1, Line  133
+                          DISPLAY_BIASES  = 0x00000FAF,     4015   : Integer. Decl File  1, Line 1331
+                    DISPLAY_PATTERN_SETS  = 0x0000001E,       30   : Integer. Decl File  1, Line  101
+                                DIV_ZERO  = 0x00000008,        8   : Integer. Decl File  1, Line  172
+                            DO_KEY_PRESS  = 0x000001B8,      440   : Integer. Decl File  1, Line  428
+                          DRAW_TETROMINO  = 0x00000385,      901   : Integer. Decl File  1, Line  810
+                              DRAW_TET_1  = 0x000003C0,      960   : Integer. Decl File  1, Line  874
+                         DRAW_TET_NORMAL  = 0x000003BC,      956   : Integer. Decl File  1, Line  867
+                          DRAW_TET_NOT_0  = 0x000003BA,      954   : Integer. Decl File  1, Line  865
+                          END_OF_PROGRAM  = 0x000003DB,      987   : Integer. Decl File  1, Line  910
+                        END_OF_VARIABLES  = 0x00000095,      149   : Integer. Decl File  1, Line  161
+                             EXTRACT_KEY  = 0x000001CA,      458   : Integer. Decl File  1, Line  443
+                                 EXT_INT  = 0x00000004,        4   : Integer. Decl File  1, Line  168
+                        FIRST_BOARD_POSN  = 0x00000060,       96   : Integer. Decl File  1, Line  119
+                   FIRST_DISPLAY_ADDRESS  = 0x0000A00C,    40972   : Integer. Decl File  1, Line  121
+                      FIRST_DISPLAY_POSN  = 0x00009FE8,    40936   : Integer. Decl File  1, Line  120
+                              FLAG_START  = 0x00000400,     1024   : Integer. Decl File  1, Line  158
+                         FULL_BOARD_SIZE  = 0x00000034,       52   : Integer. Decl File  1, Line  114
+                              FULL_ROW_1  = 0x000002A2,      674   : Integer. Decl File  1, Line  605
+                          FULL_ROW_CHECK  = 0x0000029A,      666   : Integer. Decl File  1, Line  601
+                           FULL_ROW_MASK  = 0x0000FFFF,    65535   : Integer. Decl File  1, Line  115
+                               GAME_LOOP  = 0x000000BF,      191   : Integer. Decl File  1, Line  219
+                               GAME_OVER  = 0x0000008E,      142   : Integer. Decl File  1, Line  148
+                             GEN_IO_BASE  = 0x00008030,    32816   : Integer. Decl File  2, Line   34
+                              GEN_IO_CTR  = 0x00008034,    32820   : Integer. Decl File  2, Line   39
+                            GEN_IO_INPUT  = 0x00008032,    32818   : Integer. Decl File  2, Line   38
+                           GEN_IO_OUTPUT  = 0x00008030,    32816   : Integer. Decl File  2, Line   37
+                                    GL_1  = 0x000000C8,      200   : Integer. Decl File  1, Line  227
+                             HANDLE_DROP  = 0x00000262,      610   : Integer. Decl File  1, Line  543
+                      HANDLE_DROP_LANDED  = 0x0000026F,      623   : Integer. Decl File  1, Line  551
+                           HANDLE_KEY_OK  = 0x00000281,      641   : Integer. Decl File  1, Line  563
+                             HANDLE_LEFT  = 0x000001FE,      510   : Integer. Decl File  1, Line  478
+                            HANDLE_RIGHT  = 0x00000214,      532   : Integer. Decl File  1, Line  492
+                         HANDLE_ROT_LEFT  = 0x0000022A,      554   : Integer. Decl File  1, Line  506
+                        HANDLE_ROT_RIGHT  = 0x00000246,      582   : Integer. Decl File  1, Line  524
+                           HAVE_FULL_ROW  = 0x000002BD,      701   : Integer. Decl File  1, Line  630
+                              HORZ_I_SET  = 0x00000F7B,     3963   : Integer. Decl File  1, Line 1316
+                                 ILLEGAL  = 0x0000000C,       12   : Integer. Decl File  1, Line  176
+                               INITIAL_X  = 0x00000008,        8   : Integer. Decl File  1, Line  112
+                               INITIAL_Y  = 0x00000003,        3   : Integer. Decl File  1, Line  113
+                                  INIT_1  = 0x000000FD,      253   : Integer. Decl File  1, Line  271
+                              INIT_BOARD  = 0x000000F5,      245   : Integer. Decl File  1, Line  266
+                          INTERRUPT_BASE  = 0x00008020,    32800   : Integer. Decl File  2, Line   33
+                   INTERRUPT_BIT_COUNTER  = 0x00000010,       16   : Integer. Decl File  2, Line   74
+              INTERRUPT_BIT_INPUT_CHANGE  = 0x00000020,       32   : Integer. Decl File  2, Line   75
+                     INTERRUPT_BIT_TIMER  = 0x00000008,        8   : Integer. Decl File  2, Line   73
+              INTERRUPT_BIT_UART_RX_DATA  = 0x00000004,        4   : Integer. Decl File  2, Line   72
+                INTERRUPT_BIT_UART_SPACE  = 0x00000002,        2   : Integer. Decl File  2, Line   71
+                      INTERRUPT_BIT_USER  = 0x00000001,        1   : Integer. Decl File  2, Line   70
+                          INTERRUPT_MASK  = 0x00008021,    32801   : Integer. Decl File  2, Line   67
+                        INTERRUPT_SOURCE  = 0x00008020,    32800   : Integer. Decl File  2, Line   66
+                    INT_RAM_BYTES_ACROSS  = 0x00000004,        4   : Integer. Decl File  2, Line   23
+                    INT_RAM_BYTES_HEIGHT  = 0x00000040,       64   : Integer. Decl File  2, Line   25
+           INT_RAM_BYTES_HEIGHT_AS_SHIFT  = 0x00000006,        6   : Integer. Decl File  2, Line   24
+                             INT_RAM_LEN  = 0x00000100,      256   : Integer. Decl File  2, Line   21
+                           INT_RAM_START  = 0x0000A000,    40960   : Integer. Decl File  2, Line   20
+                   IO_SWITCH_FLAG_CIRCLE  = 0x00000040,       64   : Integer. Decl File  2, Line   58
+                    IO_SWITCH_FLAG_CROSS  = 0x00000080,      128   : Integer. Decl File  2, Line   59
+                     IO_SWITCH_FLAG_DOWN  = 0x00000002,        2   : Integer. Decl File  2, Line   53
+                       IO_SWITCH_FLAG_L1  = 0x00000100,      256   : Integer. Decl File  2, Line   60
+                       IO_SWITCH_FLAG_L2  = 0x00000200,      512   : Integer. Decl File  2, Line   61
+                     IO_SWITCH_FLAG_LEFT  = 0x00000004,        4   : Integer. Decl File  2, Line   54
+                       IO_SWITCH_FLAG_R1  = 0x00000400,     1024   : Integer. Decl File  2, Line   62
+                       IO_SWITCH_FLAG_R2  = 0x00000800,     2048   : Integer. Decl File  2, Line   63
+                    IO_SWITCH_FLAG_RIGHT  = 0x00000008,        8   : Integer. Decl File  2, Line   55
+                   IO_SWITCH_FLAG_SQUARE  = 0x00000010,       16   : Integer. Decl File  2, Line   56
+                 IO_SWITCH_FLAG_TRIANGLE  = 0x00000020,       32   : Integer. Decl File  2, Line   57
+                       IO_SWITCH_FLAG_UP  = 0x00000001,        1   : Integer. Decl File  2, Line   52
+                                 IS_COLL  = 0x00000326,      806   : Integer. Decl File  1, Line  724
+                       I_BOARD_CELL_SETS  = 0x0000041B,     1051   : Integer. Decl File  1, Line  938
+                  I_DISPLAY_PATTERN_SETS  = 0x00000FBC,     4028   : Integer. Decl File  1, Line 1335
+                       J_BOARD_CELL_SETS  = 0x00000C3B,     3131   : Integer. Decl File  1, Line 1208
+                  J_DISPLAY_PATTERN_SETS  = 0x000017DC,     6108   : Integer. Decl File  1, Line 1605
+                KEY_NEEDS_DISPLAY_UPDATE  = 0x000001C6,      454   : Integer. Decl File  1, Line  437
+                         KEY_REPEAT_TIME  = 0x00000064,      100   : Integer. Decl File  1, Line  156
+                         KEY_WAS_PRESSED  = 0x000001A4,      420   : Integer. Decl File  1, Line  414
+                          LAST_DOWN_TIME  = 0x0000008F,      143   : Integer. Decl File  1, Line  149
+                           LAST_KEY_TIME  = 0x00000091,      145   : Integer. Decl File  1, Line  150
+                       L_BOARD_CELL_SETS  = 0x00000DDB,     3547   : Integer. Decl File  1, Line 1262
+                  L_DISPLAY_PATTERN_SETS  = 0x0000197C,     6524   : Integer. Decl File  1, Line 1659
+                               MAIN_LOOP  = 0x0000009C,      156   : Integer. Decl File  1, Line  191
+                                    ML_1  = 0x000000A7,      167   : Integer. Decl File  1, Line  197
+                                    ML_2  = 0x000000B4,      180   : Integer. Decl File  1, Line  205
+                           MOVE_INTERVAL  = 0x00000064,      100   : Integer. Decl File  1, Line  155
+                          MOVE_TETROMINO  = 0x0000036A,      874   : Integer. Decl File  1, Line  783
+                           MOVE_TET_DOWN  = 0x0000017B,      379   : Integer. Decl File  1, Line  380
+                        N_FULL_ROW_CHECK  = 0x00000014,       20   : Integer. Decl File  1, Line  116
+                       O_BOARD_CELL_SETS  = 0x000005BB,     1467   : Integer. Decl File  1, Line  992
+                  O_DISPLAY_PATTERN_SETS  = 0x0000115C,     4444   : Integer. Decl File  1, Line 1389
+                        PERIPHERALS_BASE  = 0x00008000,    32768   : Integer. Decl File  2, Line   30
+                               PLAY_GAME  = 0x000000BC,      188   : Integer. Decl File  1, Line  216
+                    PREV_DISPLAY_PATTERN  = 0x00000053,       83   : Integer. Decl File  1, Line  139
+                PREV_DISPLAY_POSN_BIASED  = 0x00000055,       85   : Integer. Decl File  1, Line  140
+                   PREV_DISPLAY_POSN_RAW  = 0x00000057,       87   : Integer. Decl File  1, Line  141
+                                PREV_KEY  = 0x00000093,      147   : Integer. Decl File  1, Line  151
+                               PREV_ROTN  = 0x00000052,       82   : Integer. Decl File  1, Line  138
+                                  PREV_X  = 0x00000059,       89   : Integer. Decl File  1, Line  142
+                       PS_INT_ENABLE_BIT  = 0x00000001,        1   : Integer. Decl File  2, Line   15
+                               QUIT_DRAW  = 0x000003D9,      985   : Integer. Decl File  1, Line  905
+                       REMOVE_FULL_ROW_1  = 0x000002C6,      710   : Integer. Decl File  1, Line  639
+                       REMOVE_FULL_ROW_3  = 0x000002E0,      736   : Integer. Decl File  1, Line  667
+                       REMOVE_FULL_ROW_4  = 0x000002E7,      743   : Integer. Decl File  1, Line  676
+                                   RESET  = 0x00000000,        0   : Integer. Decl File  1, Line  166
+                                   START  = 0x00000095,      149   : Integer. Decl File  1, Line  184
+                    START_FULL_ROW_CHECK  = 0x00000060,       96   : Integer. Decl File  1, Line  117
+                              START_GAME  = 0x000000E1,      225   : Integer. Decl File  1, Line  245
+                       S_BOARD_CELL_SETS  = 0x000008FB,     2299   : Integer. Decl File  1, Line 1100
+                  S_DISPLAY_PATTERN_SETS  = 0x0000149C,     5276   : Integer. Decl File  1, Line 1497
+                          TEST_COLLISION  = 0x00000308,      776   : Integer. Decl File  1, Line  696
+                              TET_LANDED  = 0x00000284,      644   : Integer. Decl File  1, Line  573
+                          TET_LANDED_END  = 0x000002B6,      694   : Integer. Decl File  1, Line  621
+                       TET_MOVE_DATA_LEN  = 0x00000008,        8   : Integer. Decl File  1, Line  143
+                               TEXT_GAME  = 0x000003DB,      987   : Integer. Decl File  1, Line  913
+                               TEXT_OVER  = 0x000003FB,     1019   : Integer. Decl File  1, Line  923
+                          THERE_IS_A_KEY  = 0x000001FC,      508   : Integer. Decl File  1, Line  472
+                               THE_BOARD  = 0x0000005A,       90   : Integer. Decl File  1, Line  145
+                              TIMER_BASE  = 0x00008000,    32768   : Integer. Decl File  2, Line   31
+                        TIME_BLK_COUNTER  = 0x00008000,    32768   : Integer. Decl File  2, Line   42
+                          TIME_BLK_TIMER  = 0x00008002,    32770   : Integer. Decl File  2, Line   43
+                     TIME_BLK_TIMER_CTRL  = 0x00008004,    32772   : Integer. Decl File  2, Line   44
+           TIME_BLK_TIMER_CTRL_CLR_COUNT  = 0x00000002,        2   : Integer. Decl File  2, Line   47
+           TIME_BLK_TIMER_CTRL_CLR_TIMER  = 0x00000004,        4   : Integer. Decl File  2, Line   48
+            TIME_BLK_TIMER_CTRL_EN_TIMER  = 0x00000001,        1   : Integer. Decl File  2, Line   46
+                       T_BOARD_CELL_SETS  = 0x0000075B,     1883   : Integer. Decl File  1, Line 1046
+                  T_DISPLAY_PATTERN_SETS  = 0x000012FC,     4860   : Integer. Decl File  1, Line 1443
+                               UART_BASE  = 0x00008010,    32784   : Integer. Decl File  2, Line   32
+                          WAIT_FOR_START  = 0x00000128,      296   : Integer. Decl File  1, Line  309
+                          WE_HAVE_LANDED  = 0x0000018C,      396   : Integer. Decl File  1, Line  393
+                                   WFS_1  = 0x0000012B,      299   : Integer. Decl File  1, Line  311
+                                   WFS_2  = 0x00000131,      305   : Integer. Decl File  1, Line  317
+                       Z_BOARD_CELL_SETS  = 0x00000A9B,     2715   : Integer. Decl File  1, Line 1154
+                  Z_DISPLAY_PATTERN_SETS  = 0x0000163C,     5692   : Integer. Decl File  1, Line 1551

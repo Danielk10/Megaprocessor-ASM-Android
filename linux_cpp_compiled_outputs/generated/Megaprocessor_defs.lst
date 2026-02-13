@@ -1,0 +1,77 @@
+   1:                    // ===============================================================
+   2:                    //
+   3:                    // Megaprocessor
+   4:                    // =============
+   5:                    // This file holds definitions useful for writing assembler
+   6:                    // programs for the Megaprocessor.
+   7:                    //
+   8:                    // This version : 15th May 2016
+   9:                    //
+  10:                    // ================================================================
+  11:                    //
+  12:                    // Coding
+  13:                    // =======
+  14:                    // definition for interrupt enable bit
+  15: 0001               PS_INT_ENABLE_BIT               equ     0x01;
+  16:                    
+  17:                    // ================================================================
+  18:                    //
+  19:                    // To handle the 256 bytes of RAM built from discrete components:
+  20: A000               INT_RAM_START                   equ     0xA000;
+  21: 0100               INT_RAM_LEN                     equ     0x0100;
+  22:                    
+  23: 0004               INT_RAM_BYTES_ACROSS            equ     4;
+  24: 0006               INT_RAM_BYTES_HEIGHT_AS_SHIFT   equ     6;
+  25: 0040               INT_RAM_BYTES_HEIGHT            equ     64;// 1 << INT_RAM_BYTES_HEIGHT_AS_SHIFT
+  26:                    
+  27:                    // ================================================================
+  28:                    //
+  29:                    // To handle the peripherals:
+  30: 8000               PERIPHERALS_BASE                equ     0x8000;
+  31: 8000               TIMER_BASE                      equ     PERIPHERALS_BASE + 0x00;
+  32: 8010               UART_BASE                       equ     PERIPHERALS_BASE + 0x10;
+  33: 8020               INTERRUPT_BASE                  equ     PERIPHERALS_BASE + 0x20;
+  34: 8030               GEN_IO_BASE                     equ     PERIPHERALS_BASE + 0x30;
+  35:                    
+  36:                    // register locations for the GPIO...
+  37: 8030               GEN_IO_OUTPUT                   equ     GEN_IO_BASE + 0;
+  38: 8032               GEN_IO_INPUT                    equ     GEN_IO_BASE + 2;
+  39: 8034               GEN_IO_CTR                      equ     GEN_IO_BASE + 4;
+  40:                    
+  41:                    // register locations for the Timer...
+  42: 8000               TIME_BLK_COUNTER                equ     TIMER_BASE + 0x00;
+  43: 8002               TIME_BLK_TIMER                  equ     TIMER_BASE + 0x02;
+  44: 8004               TIME_BLK_TIMER_CTRL             equ     TIMER_BASE + 0x04;
+  45:                    // bit definitions for timer control register
+  46: 0001               TIME_BLK_TIMER_CTRL_EN_TIMER    equ     0x01;
+  47: 0002               TIME_BLK_TIMER_CTRL_CLR_COUNT   equ     0x02;
+  48: 0004               TIME_BLK_TIMER_CTRL_CLR_TIMER   equ     0x04;
+  49:                    
+  50:                    // masks for selecting switch value on Venom Arcade Stick
+  51:                    // (Switches are HIGH by "default", and go LOW on being pressed).
+  52: 0001               IO_SWITCH_FLAG_UP               EQU     0x0001;
+  53: 0002               IO_SWITCH_FLAG_DOWN             EQU     0x0002;
+  54: 0004               IO_SWITCH_FLAG_LEFT             EQU     0x0004;
+  55: 0008               IO_SWITCH_FLAG_RIGHT            EQU     0x0008;
+  56: 0010               IO_SWITCH_FLAG_SQUARE           EQU     0x0010;
+  57: 0020               IO_SWITCH_FLAG_TRIANGLE         EQU     0x0020;
+  58: 0040               IO_SWITCH_FLAG_CIRCLE           EQU     0x0040;
+  59: 0080               IO_SWITCH_FLAG_CROSS            EQU     0x0080;
+  60: 0100               IO_SWITCH_FLAG_L1               EQU     0x0100;
+  61: 0200               IO_SWITCH_FLAG_L2               EQU     0x0200;
+  62: 0400               IO_SWITCH_FLAG_R1               EQU     0x0400;
+  63: 0800               IO_SWITCH_FLAG_R2               EQU     0x0800;
+  64:                    
+  65:                    // register locations for the Interrupt controller...
+  66: 8020               INTERRUPT_SOURCE                EQU     INTERRUPT_BASE + 0x00;
+  67: 8021               INTERRUPT_MASK                  EQU     INTERRUPT_BASE + 0x01;
+  68:                    
+  69:                    // interrupt souurce enable/value bit masks
+  70: 0001               INTERRUPT_BIT_USER              EQU     0x01;
+  71: 0002               INTERRUPT_BIT_UART_SPACE        EQU     0x02;
+  72: 0004               INTERRUPT_BIT_UART_RX_DATA      EQU     0x04;
+  73: 0008               INTERRUPT_BIT_TIMER             EQU     0x08;
+  74: 0010               INTERRUPT_BIT_COUNTER           EQU     0x10;
+  75: 0020               INTERRUPT_BIT_INPUT_CHANGE      EQU     0x20;
+  76:                    
+  77:                    

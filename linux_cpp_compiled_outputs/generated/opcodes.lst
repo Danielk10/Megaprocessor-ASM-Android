@@ -1,0 +1,356 @@
+   1:                    
+   2: 000A               org  10;
+   3:                    
+   4: 000A 03 03 03 03     ds   5,3;
+          03 
+   5:                    
+   6: 0003               x       equ 3;
+   7: 000F 03              db      x;
+   8:                    
+   9:                    // go through instruction set numerically
+  10:                    // MOVER
+  11: 0010 00              sxt     r0;
+  12: 0011 01              move    r1,r0;
+  13: 0012 02              move    r2,r0;
+  14: 0013 03              move    r3,r0;
+  15: 0014 04              move    r0,r1;
+  16: 0015 05              sxt     r1;
+  17: 0016 06              move    r2,r1;
+  18: 0017 07              move    r3,r1;
+  19: 0018 08              move    r0,r2;
+  20: 0019 09              move    r1,r2;
+  21: 001A 0A              sxt     r2;
+  22: 001B 0B              move    r3,r2;
+  23: 001C 0C              move    r0,r3;
+  24: 001D 0D              move    r1,r3;
+  25: 001E 0E              move    r2,r3;
+  26: 001F 0F              sxt     r3;
+  27:                    
+  28:                    // AND
+  29: 0020 10              test    r0;
+  30: 0021 11              and     r1,r0;
+  31: 0022 12              and     r2,r0;
+  32: 0023 13              and     r3,r0;
+  33: 0024 14              and     r0,r1;
+  34: 0025 15              test    r1;
+  35: 0026 16              and     r2,r1;
+  36: 0027 17              and     r3,r1;
+  37: 0028 18              and     r0,r2;
+  38: 0029 19              and     r1,r2;
+  39: 002A 1A              test    r2;
+  40: 002B 1B              and     r3,r2;
+  41: 002C 1C              and     r0,r3;
+  42: 002D 1D              and     r1,r3;
+  43: 002E 1E              and     r2,r3;
+  44: 002F 1F              test    r3;
+  45:                    
+  46:                    // XOR
+  47: 0030 20              xor     r0,r0;
+  48: 0031 21              xor     r1,r0;
+  49: 0032 22              xor     r2,r0;
+  50: 0033 23              xor     r3,r0;
+  51: 0034 24              xor     r0,r1;
+  52: 0035 25              xor     r1,r1;
+  53: 0036 26              xor     r2,r1;
+  54: 0037 27              xor     r3,r1;
+  55: 0038 28              xor     r0,r2;
+  56: 0039 29              xor     r1,r2;
+  57: 003A 2A              xor     r2,r2;
+  58: 003B 2B              xor     r3,r2;
+  59: 003C 2C              xor     r0,r3;
+  60: 003D 2D              xor     r1,r3;
+  61: 003E 2E              xor     r2,r3;
+  62: 003F 2F              xor     r3,r3;
+  63:                    
+  64:                    
+  65:                    // OR
+  66: 0040 30              inv     r0;
+  67: 0041 31              or      r1,r0;
+  68: 0042 32              or      r2,r0;
+  69: 0043 33              or      r3,r0;
+  70: 0044 34              or      r0,r1;
+  71: 0045 35              inv     r1;
+  72: 0046 36              or      r2,r1;
+  73: 0047 37              or      r3,r1;
+  74: 0048 38              or      r0,r2;
+  75: 0049 39              or      r1,r2;
+  76: 004A 3A              inv     r2;
+  77: 004B 3B              or      r3,r2;
+  78: 004C 3C              or      r0,r3;
+  79: 004D 3D              or      r1,r3;
+  80: 004E 3E              or      r2,r3;
+  81: 004F 3F              inv     r3;
+  82:                    
+  83:                    // ADD
+  84: 0050 40              add     r0,r0;
+  85: 0051 41              add     r1,r0;
+  86: 0052 42              add     r2,r0;
+  87: 0053 43              add     r3,r0;
+  88: 0054 44              add     r0,r1;
+  89: 0055 45              add     r1,r1;
+  90: 0056 46              add     r2,r1;
+  91: 0057 47              add     r3,r1;
+  92: 0058 48              add     r0,r2;
+  93: 0059 49              add     r1,r2;
+  94: 005A 4A              add     r2,r2;
+  95: 005B 4B              add     r3,r2;
+  96: 005C 4C              add     r0,r3;
+  97: 005D 4D              add     r1,r3;
+  98: 005E 4E              add     r2,r3;
+  99: 005F 4F              add     r3,r3;
+ 100:                    
+ 101:                    // ADDQ
+ 102: 0060 50              addq    r0,#2;
+ 103: 0061 51              addq    r1,#2;
+ 104: 0062 52              addq    r2,#2;
+ 105: 0063 53              addq    r3,#2;
+ 106: 0064 54              addq    r0,#1;
+ 107: 0065 55              addq    r1,#1;
+ 108: 0066 56              addq    r2,#1;
+ 109: 0067 57              addq    r3,#1;
+ 110: 0068 58              addq    r0,#-2;
+ 111: 0069 59              addq    r1,#-2;
+ 112: 006A 5A              addq    r2,#-2;
+ 113: 006B 5B              addq    r3,#-2;
+ 114: 006C 5C              addq    r0,#-1;
+ 115: 006D 5D              addq    r1,#-1;
+ 116: 006E 5E              addq    r2,#-1;
+ 117: 006F 5F              addq    r3,#-1;
+ 118:                    
+ 119:                    // ADD
+ 120: 0070 60              neg     r0;
+ 121: 0071 61              sub     r1,r0;
+ 122: 0072 62              sub     r2,r0;
+ 123: 0073 63              sub     r3,r0;
+ 124: 0074 64              sub     r0,r1;
+ 125: 0075 65              neg     r1;
+ 126: 0076 66              sub     r2,r1;
+ 127: 0077 67              sub     r3,r1;
+ 128: 0078 68              sub     r0,r2;
+ 129: 0079 69              sub     r1,r2;
+ 130: 007A 6A              neg     r2;
+ 131: 007B 6B              sub     r3,r2;
+ 132: 007C 6C              sub     r0,r3;
+ 133: 007D 6D              sub     r1,r3;
+ 134: 007E 6E              sub     r2,r3;
+ 135: 007F 6F              neg     r3;
+ 136:                    
+ 137:                    // CMP
+ 138: 0080 70              abs     r0;
+ 139: 0081 71              cmp     r1,r0;
+ 140: 0082 72              cmp     r2,r0;
+ 141: 0083 73              cmp     r3,r0;
+ 142: 0084 74              cmp     r0,r1;
+ 143: 0085 75              abs     r1;
+ 144: 0086 76              cmp     r2,r1;
+ 145: 0087 77              cmp     r3,r1;
+ 146: 0088 78              cmp     r0,r2;
+ 147: 0089 79              cmp     r1,r2;
+ 148: 008A 7A              abs     r2;
+ 149: 008B 7B              cmp     r3,r2;
+ 150: 008C 7C              cmp     r0,r3;
+ 151: 008D 7D              cmp     r1,r3;
+ 152: 008E 7E              cmp     r2,r3;
+ 153: 008F 7F              abs     r3;
+ 154:                    
+ 155:                    // INDIRECT
+ 156: 0090 80              ld.w    r0,(r2);
+ 157: 0091 81              ld.w    r1,(r2);
+ 158: 0092 82              ld.w    r0,(r3);
+ 159: 0093 83              ld.w    r1,(r3);
+ 160: 0094 84              ld.b    r0,(r2);
+ 161: 0095 85              ld.b    r1,(r2);
+ 162: 0096 86              ld.b    r0,(r3);
+ 163: 0097 87              ld.b    r1,(r3);
+ 164: 0098 88              st.w    (r2),r0;
+ 165: 0099 89              st.w    (r2),r1;
+ 166: 009A 8A              st.w    (r3),r0;
+ 167: 009B 8B              st.w    (r3),r1;
+ 168: 009C 8C              st.b    (r2),r0;
+ 169: 009D 8D              st.b    (r2),r1;
+ 170: 009E 8E              st.b    (r3),r0;
+ 171: 009F 8F              st.b    (r3),r1;
+ 172:                    
+ 173:                    // POSTINC
+ 174: 00A0 90              ld.w    r0,(r2++);
+ 175: 00A1 91              ld.w    r1,(r2++);
+ 176: 00A2 92              ld.w    r0,(r3++);
+ 177: 00A3 93              ld.w    r1,(r3++);
+ 178: 00A4 94              ld.b    r0,(r2++);
+ 179: 00A5 95              ld.b    r1,(r2++);
+ 180: 00A6 96              ld.b    r0,(r3++);
+ 181: 00A7 97              ld.b    r1,(r3++);
+ 182: 00A8 98              st.w    (r2++),r0;
+ 183: 00A9 99              st.w    (r2++),r1;
+ 184: 00AA 9A              st.w    (r3++),r0;
+ 185: 00AB 9B              st.w    (r3++),r1;
+ 186: 00AC 9C              st.b    (r2++),r0;
+ 187: 00AD 9D              st.b    (r2++),r1;
+ 188: 00AE 9E              st.b    (r3++),r0;
+ 189: 00AF 9F              st.b    (r3++),r1;
+ 190:                    
+ 191:                    // STACKREL
+ 192: 00B0 A0 78           ld.w    r0,(sp+0x78);
+ 193: 00B2 A1 78           ld.w    r1,(sp+0x78);
+ 194: 00B4 A2 78           ld.w    r2,(sp+0x78);
+ 195: 00B6 A3 78           ld.w    r3,(sp+0x78);
+ 196: 00B8 A4 78           ld.b    r0,(sp+0x78);
+ 197: 00BA A5 78           ld.b    r1,(sp+0x78);
+ 198: 00BC A6 78           ld.b    r2,(sp+0x78);
+ 199: 00BE A7 78           ld.b    r3,(sp+0x78);
+ 200: 00C0 A8 78           st.w    (sp+0x78),r0;
+ 201: 00C2 A9 78           st.w    (sp+0x78),r1;
+ 202: 00C4 AA 78           st.w    (sp+0x78),r2;
+ 203: 00C6 AB 78           st.w    (sp+0x78),r3;
+ 204: 00C8 AC 78           st.b    (sp+0x78),r0;
+ 205: 00CA AD 78           st.b    (sp+0x78),r1;
+ 206: 00CC AE 78           st.b    (sp+0x78),r2;
+ 207: 00CE AF 78           st.b    (sp+0x78),r3;
+ 208:                    
+ 209:                    // ABSOLUTE
+ 210: 00D0 B0 FE CA        ld.w    r0,0xCAFE;
+ 211: 00D3 B1 FE CA        ld.w    r1,0xCAFE;
+ 212: 00D6 B2 FE CA        ld.w    r2,0xCAFE;
+ 213: 00D9 B3 FE CA        ld.w    r3,0xCAFE;
+ 214: 00DC B4 FE CA        ld.b    r0,0xCAFE;
+ 215: 00DF B5 FE CA        ld.b    r1,0xCAFE;
+ 216: 00E2 B6 FE CA        ld.b    r2,0xCAFE;
+ 217: 00E5 B7 FE CA        ld.b    r3,0xCAFE;
+ 218: 00E8 B8 FE CA        st.w    0xCAFE,r0;
+ 219: 00EB B9 FE CA        st.w    0xCAFE,r1;
+ 220: 00EE BA FE CA        st.w    0xCAFE,r2;
+ 221: 00F1 BB FE CA        st.w    0xCAFE,r3;
+ 222: 00F4 BC FE CA        st.b    0xCAFE,r0;
+ 223: 00F7 BD FE CA        st.b    0xCAFE,r1;
+ 224: 00FA BE FE CA        st.b    0xCAFE,r2;
+ 225: 00FD BF FE CA        st.b    0xCAFE,r3;
+ 226:                    
+ 227:                    // PUSH/POP
+ 228: 0100 C0              pop     r0;
+ 229: 0101 C1              pop     r1;
+ 230: 0102 C2              pop     r2;
+ 231: 0103 C3              pop     r3;
+ 232: 0104 C4              pop     ps;
+ 233:                    // not used any more....reset;
+ 234: 0105 C6              ret;
+ 235: 0106 C7              reti;
+ 236: 0107 C8              push    r0;
+ 237: 0108 C9              push    r1;
+ 238: 0109 CA              push    r2;
+ 239: 010A CB              push    r3;
+ 240: 010B CC              push    ps;
+ 241: 010C CD              trap;
+ 242: 010D CE              jsr     (r0);
+ 243: 010E CF 34 12        jsr     0x1234;
+ 244:                    
+ 245:                    // IMMEDIATE
+ 246: 0111 D0 FE CA        ld.w    r0,#0xCAFE;
+ 247: 0114 D1 FE CA        ld.w    r1,#0xCAFE;
+ 248: 0117 D2 FE CA        ld.w    r2,#0xCAFE;
+ 249: 011A D3 FE CA        ld.w    r3,#0xCAFE;
+ 250: 011D D4 FE           ld.b    r0,#0xCAFE;
+ 251: 011F D5 FE           ld.b    r1,#0xCAFE;
+ 252: 0121 D6 FE           ld.b    r2,#0xCAFE;
+ 253: 0123 D7 FE           ld.b    r3,#0xCAFE;
+ 254:                    
+ 255:                    // shift
+ 256: 0125 D8 63           asl     r0,r3;
+ 257: 0127 D9 62           asl     r1,r2;
+ 258: 0129 DA 61           asl     r2,r1;
+ 259: 012B DB 60           asl     r3,r0;
+ 260:                    //        asr     r0,r1;
+ 261: 012D D8 21           lsl     r0,r1;
+ 262:                    //        lsr     r0,r1;
+ 263: 012F D8 A1           rol     r0,r1;
+ 264:                    //        ror     r0,r1;
+ 265: 0131 D8 E1           roxl    r0,r1;
+ 266:                    //        roxr    r0,r1;
+ 267:                    
+ 268: 0133 D8 6B           asl.wt     r0,r3;
+ 269: 0135 D9 6A           asl.wt     r1,r2;
+ 270: 0137 DA 69           asl.wt     r2,r1;
+ 271: 0139 DB 68           asl.wt     r3,r0;
+ 272:                    
+ 273: 013B D9 47           asl     r1,#7;
+ 274: 013D D9 59           asr     r1,#7;
+ 275: 013F D9 07           lsl     r1,#7;
+ 276: 0141 D9 19           lsr     r1,#7;
+ 277: 0143 D9 87           rol     r1,#7;
+ 278: 0145 D9 99           ror     r1,#7;
+ 279: 0147 D9 C7           roxl    r1,#7;
+ 280: 0149 D9 D9           roxr    r1,#7;
+ 281:                    
+ 282:                    // bit
+ 283: 014B DC 23           btst    r0,r3;
+ 284: 014D DD 22           btst    r1,r2;
+ 285: 014F DE 21           btst    r2,r1;
+ 286: 0151 DF 20           btst    r3,r0;
+ 287: 0153 DC 61           bchg    r0,r1;
+ 288: 0155 DC A1           bclr    r0,r1;
+ 289: 0157 DC E1           bset    r0,r1;
+ 290:                    
+ 291: 0159 DD 07           btst    r1,#7;
+ 292: 015B DD 47           bchg    r1,#7;
+ 293: 015D DD 87           bclr    r1,#7;
+ 294: 015F DD C7           bset    r1,#7;
+ 295:                    
+ 296:                    // BRANCH
+ 297: 0161 FF              target: nop;
+ 298: 0162 E1 FD           bus     target;
+ 299: 0164 E0 FB           buc     target;
+ 300: 0166 E2 F9           bhi     target;
+ 301: 0168 E3 F7           bls     target;
+ 302: 016A E4 F5           bcc     target;
+ 303: 016C E5 F3           bcs     target;
+ 304: 016E E6 F1           bne     target;
+ 305: 0170 E7 EF           beq     target;
+ 306: 0172 E8 ED           bvc     target;
+ 307: 0174 E9 EB           bvs     target;
+ 308: 0176 EA E9           bpl     target;
+ 309: 0178 EB E7           bmi     target;
+ 310: 017A EC E5           bge     target;
+ 311: 017C ED E3           blt     target;
+ 312: 017E EE E1           bgt     target;
+ 313: 0180 EF DF           ble     target;
+ 314:                    
+ 315:                    // MISC
+ 316: 0182 F0              move    r0,sp;
+ 317: 0183 F1              move    sp,r0;
+ 318: 0184 F2              jmp     (r0);
+ 319: 0185 F3 34 12        jmp     0x1234;
+ 320: 0188 F4 34           andi    ps,#0x1234;
+ 321: 018A F5 34           ori     ps,#0x1234;
+ 322: 018C F6 34           addi    sp,#0x1234;
+ 323: 018E F7              sqrt;
+ 324: 018F F8              mulu;
+ 325: 0190 F9              muls;
+ 326: 0191 FA              divu;
+ 327: 0192 FB              divs;
+ 328: 0193 FC              addx    r0,r1;
+ 329: 0194 FD              subx    r0,r1;
+ 330: 0195 FE              negx    r0;
+ 331: 0196 FF              nop;
+ 332:                    
+ 333:                    
+ 334: 0197 01 02 03 04     db      1,2,3,4,0b1010;
+          0A 
+ 335: 019C 15 00 F4 01     dw      21,500,0xdeadbeef,0xCAFe;
+          EF BE FE CA 
+ 336: 01A4 78 56 34 12     dl      0x12345678, 0xdeadbeef;
+          EF BE AD DE 
+ 337: 01AC 48 69 20 74     dm      "Hi there";
+          68 65 72 65 
+          00 
+ 338:                    
+ 339: 0258               label_600:   org      600;
+ 340: 0258               also_600     EQU     $;
+ 341: 0258 00 00 00 00     ds      10;
+          00 00 00 00 
+          00 00 
+ 342: 0262 F3 58 02        jmp     label_600;
+ 343: 0265 F3 58 02        jmp     also_600;
+ 344:                    
+ 345: 0268 C7              reti;
+ 346:                    
+ 347:                    
+ 348:                    
