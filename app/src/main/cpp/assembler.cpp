@@ -74,8 +74,8 @@ int Assembler::parseRegister(const std::string& token) {
     if (t == "R1") return 1;
     if (t == "R2") return 2;
     if (t == "R3") return 3;
-    if (t == "SP") return 4;
-    if (t == "PS") return 5;
+    if (t == "PS") return 4;
+    if (t == "SP") return 5; 
     return -1;
 }
 
@@ -84,16 +84,13 @@ uint8_t Assembler::getALUOpcode(const std::string& mnemonic, int ra, int rb) {
 
     const uint8_t regCode = static_cast<uint8_t>(rb * 4 + ra);
 
-    if (mnemonic == "MOVE") return regCode;
+    if (mnemonic == "MOVE" || mnemonic == "SXT") return regCode;
     if (mnemonic == "AND" || mnemonic == "TEST") return 0x10 + regCode;
     if (mnemonic == "XOR" || mnemonic == "CLR")  return 0x20 + regCode;
     if (mnemonic == "OR"  || mnemonic == "INV")  return 0x30 + regCode;
     if (mnemonic == "ADD") return 0x40 + regCode;
-    // Note: SUB and CMP use the same base for registers? 
-    // opcodes.lst: sub r1,r0 -> 61. cmp r1,r0 -> 71.
     if (mnemonic == "SUB" || mnemonic == "NEG") return 0x60 + regCode;
     if (mnemonic == "CMP" || mnemonic == "ABS") return 0x70 + regCode;
-    if (mnemonic == "SXT") return 0x00 + regCode; // SXT uses ra=rb in opcodes.lst (MOVE rx, rx)
     
     return 0xFF;
 }
@@ -139,12 +136,12 @@ void Assembler::encodeALU(const std::string& mnemonic, const std::string& op1, c
 
     // Two operand ALU ops
     if (r1 >= 0 && r2 >= 0) {
-        if (mnemonic == "MOVE" && r1 == 4 && r2 == 0) { // move sp,r0
-            bytes.push_back(0xF1);
-            return;
-        }
         if (mnemonic == "MOVE" && r1 == 0 && r2 == 4) { // move r0,sp
             bytes.push_back(0xF0);
+            return;
+        }
+        if (mnemonic == "MOVE" && r1 == 4 && r2 == 0) { // move sp,r0
+            bytes.push_back(0xF1);
             return;
         }
         
@@ -178,7 +175,7 @@ void Assembler::encodeBitOp(const std::string& mnemonic, const std::string& op1,
     if (r2 >= 0) {
         // Register mode
         opByte |= 0x20; // Bit 5
-        opByte |= (r2 & 0x1F); // Actually only 0-5 likely valid
+        opByte |= (r2 & 0x03);
     } else {
         // Immediate mode
         std::string valStr = op2;
@@ -495,15 +492,16 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
 
     for (const auto& rawLine : lines) {
         lineNum++;
-        if (lineNum % 500 == 0) LOGI("Pass 1: Processed %d lines...", lineNum);
+        if (lineNum % 200 == 0) LOGI("Pass 1: Processed %d lines...", lineNum);
         
         std::string line = rawLine;
 
-        // Debug: specific check for check_key
-        if (toUpper(rawLine).find("CHECK_KEY") != std::string::npos) {
+        // Ultra-deep check for symbols that might be causing issues
+        if (toUpper(rawLine).find("CHECK_KEY") != std::string::npos || 
+            toUpper(rawLine).find("CALC_POINTERS") != std::string::npos) {
             std::stringstream hexDump;
             for (unsigned char c : rawLine) hexDump << std::hex << std::setw(2) << std::setfill('0') << (int)c << " ";
-            LOGI("Pass 1: DEBUG line %d: '%s' (Hex: %s)", lineNum, rawLine.c_str(), hexDump.str().c_str());
+            LOGI("Pass 1: DEBUG L%d: '%s' (Hex: %s)", lineNum, rawLine.c_str(), hexDump.str().c_str());
         }
 
         size_t commentPos = line.find("//");
@@ -811,9 +809,8 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         } else if (mnemonic == "PUSH" || mnemonic == "POP") {
             int r = parseRegister(op1);
             if (r < 0) {
-                // Check if it's PS or another special register
                 std::string rStr = toUpper(trim(op1));
-                if (rStr == "PS") r = 5;
+                if (rStr == "PS") r = 4;
                 else {
                     error = "Invalid register in " + mnemonic + " at line " + std::to_string(lineNum);
                     return false;
@@ -821,9 +818,9 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             }
             bytes.push_back((mnemonic == "POP" ? 0xC0 : 0xC8) + r);
         } else if (mnemonic == "RET") {
-            bytes.push_back(0xCB);
+            bytes.push_back(0xC6);
         } else if (mnemonic == "RETI") {
-            bytes.push_back(0xCC);
+            bytes.push_back(0xC7);
         } else if (mnemonic == "TRAP") {
             bytes.push_back(0xCD);
         } else if (mnemonic == "ASL" || mnemonic == "ASR" || mnemonic == "LSL" || mnemonic == "LSR" ||
@@ -835,9 +832,9 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
             }
 
             int type = 0; // LSL/LSR
-            if (mnemonic == "ASL" || mnemonic == "ASR") type = 1;
-            else if (mnemonic == "ROL" || mnemonic == "ROR") type = 2;
-            else if (mnemonic == "ROXL" || mnemonic == "ROXR") type = 3;
+            if (mnemonic == "ASL" || mnemonic == "ASR") type = 2;
+            else if (mnemonic == "ROL" || mnemonic == "ROR") type = 4;
+            else if (mnemonic == "ROXL" || mnemonic == "ROXR") type = 6;
 
             bool isRight = (mnemonic.back() == 'R');
             bool isRegShift = false;
@@ -849,20 +846,10 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                  return false;
             }
 
-            // Check if second operand is a register
             srcReg = parseRegister(op2);
             if (srcReg >= 0) {
                 isRegShift = true;
-                if (isRight) {
-                     // In register mode, direction is determined by the register value (sign),
-                     // so the mnemonic should typically be the 'Left' version (LSL, ASL, etc.).
-                     // However, if user writes LSR R0, R1, we could map it to LSL R0, R1 assuming
-                     // they know R1 should be negative? Or block it?
-                     // opcodes.asm comments out lsr r0,r1. We will allow it but map to 'Left' opcode structure.
-                     // The hardware likely creates the shift amount from the register directly.
-                }
             } else {
-                // Immediate
                 std::string valStr = op2;
                 if (valStr[0] == '#') valStr = valStr.substr(1);
                 if (!evaluateExpression(valStr, shiftVal)) {
@@ -872,15 +859,13 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
                 if (isRight) shiftVal = -shiftVal;
             }
 
-            uint8_t opByte = (type << 6);
+            uint8_t opByte;
             if (isRegShift) {
-                opByte |= 0x20; // Bit 5 set for register shift
-                opByte |= (srcReg & 0x03);
+                opByte = ((type | 1) << 5) | (srcReg & 0x03);
             } else {
-                opByte |= (shiftVal & 0x1F);
+                opByte = (type << 5) | (shiftVal & 0x1F);
             }
-            
-            if (isWT) opByte |= 0x08; // Set write-through/flag bit if .WT used
+            if (isWT) opByte |= 0x08;
 
             bytes.push_back(0xD8 + r);
             bytes.push_back(opByte);
