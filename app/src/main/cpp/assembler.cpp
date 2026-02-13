@@ -325,7 +325,7 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
                                                        std::vector<std::string>& includeStack) const {
     std::string fullSource;
     for (const auto& line : rawLines) fullSource += line + "\n";
-    
+
     std::string cleaned;
     bool inBlockComment = false;
     bool inLineComment = false;
@@ -333,16 +333,8 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         char c = fullSource[i];
         char next = (i + 1 < fullSource.size()) ? fullSource[i + 1] : '\0';
 
-        if (inLineComment) {
-            if (c == '\n') {
-                inLineComment = false;
-                cleaned += '\n';
-            }
-            continue;
-        }
-
         if (inBlockComment) {
-            if (c == '*' && next == '/') {
+            if (c == "*"[0] && next == "/"[0]) {
                 inBlockComment = false;
                 ++i;
             } else if (c == '\n') {
@@ -352,8 +344,14 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
         }
 
         if (c == '/' && next == '/') {
-            inLineComment = true;
+            // Keep whole line-comment text as-is for listing fidelity.
+            cleaned += c;
+            cleaned += next;
             ++i;
+            while (i + 1 < fullSource.size() && fullSource[i + 1] != '\n') {
+                cleaned += fullSource[i + 1];
+                ++i;
+            }
             continue;
         }
 
@@ -367,25 +365,37 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
     }
 
     std::vector<std::string> expanded;
-    std::vector<std::string> linesToProcess = split(cleaned, '\n');
-    
-    for (const auto& rawLine : linesToProcess) {
-        std::string line = rawLine;
-        size_t commentPos = line.find("//");
-        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
-        commentPos = line.find(';');
-        if (commentPos != std::string::npos) line = line.substr(0, commentPos);
-        line = trim(line);
+    std::vector<std::string> linesToProcess;
+    {
+        std::stringstream ssLines(cleaned);
+        std::string raw;
+        while (std::getline(ssLines, raw)) {
+            linesToProcess.push_back(raw);
+        }
+        if (!cleaned.empty() && cleaned.back() == '\n') {
+            linesToProcess.push_back("");
+        }
+    }
 
-        if (line.empty()) {
-            expanded.push_back("");
+    for (const auto& rawLine : linesToProcess) {
+        std::string parseLine = rawLine;
+        size_t commentPos = parseLine.find("//");
+        if (commentPos != std::string::npos) parseLine = parseLine.substr(0, commentPos);
+        commentPos = parseLine.find(';');
+        if (commentPos != std::string::npos) parseLine = parseLine.substr(0, commentPos);
+        parseLine = trim(parseLine);
+
+        if (parseLine.empty()) {
+            expanded.push_back(rawLine);
             continue;
         }
 
-        std::stringstream ss(line);
+        std::stringstream ss(parseLine);
         std::string mnemonic;
         ss >> mnemonic;
         if (toUpper(mnemonic) == "INCLUDE") {
+            expanded.push_back(rawLine);
+
             std::string includeToken;
             std::getline(ss, includeToken);
             std::string includeName = normalizeIncludeName(includeToken);
@@ -401,7 +411,17 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
             }
 
             includeStack.push_back(includeName);
-            std::vector<std::string> includeLines = split(it->second, '\n');
+            std::vector<std::string> includeLines;
+            {
+                std::stringstream ssInc(it->second);
+                std::string incRaw;
+                while (std::getline(ssInc, incRaw)) {
+                    includeLines.push_back(incRaw);
+                }
+                if (!it->second.empty() && it->second.back() == '\n') {
+                    includeLines.push_back("");
+                }
+            }
             std::string includeError;
             std::vector<std::string> nested = preprocessIncludes(includeLines, includeError, includeStack);
             includeStack.pop_back();
@@ -409,11 +429,14 @@ std::vector<std::string> Assembler::preprocessIncludes(const std::vector<std::st
                 error = includeError;
                 return {};
             }
+
             expanded.insert(expanded.end(), nested.begin(), nested.end());
             continue;
         }
+
         expanded.push_back(rawLine);
     }
+
     return expanded;
 }
 
@@ -566,7 +589,9 @@ bool Assembler::pass1(const std::vector<std::string>& lines, std::string& error)
 
         if (mnemonic.empty()) continue;
         int size = 1;
-        if (mnemonic == "ORG") {
+        if (mnemonic == "INCLUDE") {
+            continue;
+        } else if (mnemonic == "ORG") {
             std::string valStr; std::getline(ss, valStr);
             int32_t val;
             if (!evaluateExpression(valStr, val)) {
@@ -720,7 +745,9 @@ bool Assembler::pass2(const std::vector<std::string>& lines, std::string& error)
         std::string op1 = opList.size() > 0 ? opList[0] : "";
         std::string op2 = opList.size() > 1 ? opList[1] : "";
 
-        if (mnemonic == "ORG") {
+        if (mnemonic == "INCLUDE") {
+            inst.isDirective = true;
+        } else if (mnemonic == "ORG") {
             int32_t val;
             if (!evaluateExpression(op1, val)) {
                 error = "Invalid ORG expression at line " + std::to_string(lineNum) + ": " + expressionError;

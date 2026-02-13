@@ -1,0 +1,1185 @@
+   1:                    // Start with shared definitions...
+   2: 0000               include "Megaprocessor_defs.asm";
+   3:                    // ===============================================================
+   4:                    // 
+   5:                    // Megaprocessor
+   6:                    // =============
+   7:                    // This file holds definitions useful for writing assembler
+   8:                    // programs for the Megaprocessor.
+   9:                    //
+  10:                    // This version : 15th May 2016
+  11:                    //
+  12:                    // ================================================================
+  13:                    //
+  14:                    // Coding
+  15:                    // =======
+  16:                    // definition for interrupt enable bit
+  17: 0001               PS_INT_ENABLE_BIT               equ     0x01;
+  18:                    
+  19:                    // ================================================================
+  20:                    //
+  21:                    // To handle the 256 bytes of RAM built from discrete components:
+  22: A000               INT_RAM_START                   equ     0xA000;
+  23: 0100               INT_RAM_LEN                     equ     0x0100;
+  24:                    
+  25: 0004               INT_RAM_BYTES_ACROSS            equ     4;
+  26: 0006               INT_RAM_BYTES_HEIGHT_AS_SHIFT   equ     6;
+  27: 0040               INT_RAM_BYTES_HEIGHT            equ     64;// 1 << INT_RAM_BYTES_HEIGHT_AS_SHIFT
+  28:                    
+  29:                    // ================================================================
+  30:                    //
+  31:                    // To handle the peripherals:
+  32: 8000               PERIPHERALS_BASE                equ     0x8000;
+  33: 8000               TIMER_BASE                      equ     PERIPHERALS_BASE + 0x00;
+  34: 8010               UART_BASE                       equ     PERIPHERALS_BASE + 0x10;
+  35: 8020               INTERRUPT_BASE                  equ     PERIPHERALS_BASE + 0x20;
+  36: 8030               GEN_IO_BASE                     equ     PERIPHERALS_BASE + 0x30;
+  37:                    
+  38:                    // register locations for the GPIO...
+  39: 8030               GEN_IO_OUTPUT                   equ     GEN_IO_BASE + 0;
+  40: 8032               GEN_IO_INPUT                    equ     GEN_IO_BASE + 2;
+  41: 8034               GEN_IO_CTR                      equ     GEN_IO_BASE + 4;
+  42:                    
+  43:                    // register locations for the Timer...
+  44: 8000               TIME_BLK_COUNTER                equ     TIMER_BASE + 0x00;
+  45: 8002               TIME_BLK_TIMER                  equ     TIMER_BASE + 0x02;
+  46: 8004               TIME_BLK_TIMER_CTRL             equ     TIMER_BASE + 0x04;
+  47:                    // bit definitions for timer control register
+  48: 0001               TIME_BLK_TIMER_CTRL_EN_TIMER    equ     0x01;
+  49: 0002               TIME_BLK_TIMER_CTRL_CLR_COUNT   equ     0x02;
+  50: 0004               TIME_BLK_TIMER_CTRL_CLR_TIMER   equ     0x04;
+  51:                    
+  52:                    // masks for selecting switch value on Venom Arcade Stick
+  53:                    // (Switches are HIGH by "default", and go LOW on being pressed).
+  54: 0001               IO_SWITCH_FLAG_UP               EQU     0x0001;
+  55: 0002               IO_SWITCH_FLAG_DOWN             EQU     0x0002;
+  56: 0004               IO_SWITCH_FLAG_LEFT             EQU     0x0004;
+  57: 0008               IO_SWITCH_FLAG_RIGHT            EQU     0x0008;
+  58: 0010               IO_SWITCH_FLAG_SQUARE           EQU     0x0010;
+  59: 0020               IO_SWITCH_FLAG_TRIANGLE         EQU     0x0020;
+  60: 0040               IO_SWITCH_FLAG_CIRCLE           EQU     0x0040;
+  61: 0080               IO_SWITCH_FLAG_CROSS            EQU     0x0080;
+  62: 0100               IO_SWITCH_FLAG_L1               EQU     0x0100;
+  63: 0200               IO_SWITCH_FLAG_L2               EQU     0x0200;
+  64: 0400               IO_SWITCH_FLAG_R1               EQU     0x0400;
+  65: 0800               IO_SWITCH_FLAG_R2               EQU     0x0800;
+  66:                    
+  67:                    // register locations for the Interrupt controller...
+  68: 8020               INTERRUPT_SOURCE                EQU     INTERRUPT_BASE + 0x00;
+  69: 8021               INTERRUPT_MASK                  EQU     INTERRUPT_BASE + 0x01;
+  70:                    
+  71:                    // interrupt souurce enable/value bit masks
+  72: 0001               INTERRUPT_BIT_USER              EQU     0x01;
+  73: 0002               INTERRUPT_BIT_UART_SPACE        EQU     0x02;
+  74: 0004               INTERRUPT_BIT_UART_RX_DATA      EQU     0x04;
+  75: 0008               INTERRUPT_BIT_TIMER             EQU     0x08;
+  76: 0010               INTERRUPT_BIT_COUNTER           EQU     0x10;
+  77: 0020               INTERRUPT_BIT_INPUT_CHANGE      EQU     0x20;
+  78:                    
+  79:                    
+  80:                    
+  81:                    // *************************************
+  82:                    // tables and variables....
+  83: 4000               org 0x4000;
+  84:                    
+  85:                    
+  86:                    // pieces are a bit mask with bit/place allocations as -
+  87:                    //
+  88:                    //         0 1 2
+  89:                    //         3 4 5
+  90:                    //         6 7 8
+  91:                    
+  92: 0001               M_TOP_LEFT  EQU 1;
+  93: 0002               M_MID_TOP   EQU 1 << 1;
+  94: 0004               M_TOP_RIGHT EQU 1 << 2;
+  95: 0008               M_MID_LEFT  EQU 1 << 3;
+  96: 0010               M_CENTRE    EQU 1 << 4;
+  97: 0020               M_MID_RIGHT EQU 1 << 5;
+  98: 0040               M_BOT_LEFT  EQU 1 << 6;
+  99: 0080               M_MID_BOT   EQU 1 << 7;
+ 100: 0100               M_BOT_RIGHT EQU 1 << 8;
+ 101:                    
+ 102:                    
+ 103: 01FF               ALL_PLACES  EQU 0x1FF;
+ 104:                    
+ 105: 0007               LINE_H_TOP  EQU M_TOP_LEFT  + M_MID_TOP   + M_TOP_RIGHT;
+ 106: 0038               LINE_H_MID  EQU M_MID_LEFT  + M_CENTRE    + M_MID_RIGHT;
+ 107: 01C0               LINE_H_BOT  EQU M_BOT_LEFT  + M_MID_BOT   + M_BOT_RIGHT;
+ 108: 0049               LINE_V_LFT  EQU M_TOP_LEFT  + M_MID_LEFT  + M_BOT_LEFT;
+ 109: 0092               LINE_V_MID  EQU M_MID_TOP   + M_CENTRE    + M_MID_BOT;
+ 110: 0124               LINE_V_RGT  EQU M_TOP_RIGHT + M_MID_RIGHT + M_BOT_RIGHT;
+ 111: 0111               LINE_D_LFT  EQU M_TOP_LEFT  + M_CENTRE    + M_BOT_RIGHT;
+ 112: 0054               LINE_D_RGT  EQU M_TOP_RIGHT + M_CENTRE    + M_BOT_LEFT;
+ 113:                    
+ 114: 4000 01 00 02 00     place_masks:    dw  0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080, 0x100;
+          04 00 08 00 
+          10 00 20 00 
+          40 00 80 00 
+          00 01 
+ 115:                    
+ 116:                    // *************************************
+ 117: 4012 00 00           our_pieces:     dw;
+ 118: 4014 00 00           their_pieces:   dw;
+ 119: 4016 00 00           all_pieces:     dw;
+ 120:                    
+ 121: 4018 00              is_our_move:    db;
+ 122: 4019 00              our_mark:       db;
+ 123: 401A 00              first_move:     db;
+ 124:                    
+ 125:                    // results from search for line formation
+ 126: 401B 00              cfl_n_candidates:   db;
+ 127: 401C 00 00           cfl_candidate:      dw;
+ 128:                    
+ 129:                    // =============================================================
+ 130:                    // data to draw Xs
+ 131:                    x_data_left:
+ 132: 401E 02 01           dw  0x0102;
+ 133: 4020 84 00           dw  0x0084;
+ 134: 4022 48 00           dw  0x0048;
+ 135: 4024 30 00           dw  0x0030;
+ 136: 4026 30 00           dw  0x0030;
+ 137: 4028 48 00           dw  0x0048;
+ 138: 402A 84 00           dw  0x0084;
+ 139: 402C 02 01           dw  0x0102;
+ 140:                    
+ 141:                    x_data_mid:
+ 142: 402E 10 08           dw  0x0810;
+ 143: 4030 20 04           dw  0x0420;
+ 144: 4032 40 02           dw  0x0240;
+ 145: 4034 80 01           dw  0x0180;
+ 146: 4036 80 01           dw  0x0180;
+ 147: 4038 40 02           dw  0x0240;
+ 148: 403A 20 04           dw  0x0420;
+ 149: 403C 10 08           dw  0x0810;
+ 150:                    
+ 151:                    x_data_right:
+ 152: 403E 80 40           dw  0x4080;
+ 153: 4040 00 21           dw  0x2100;
+ 154: 4042 00 12           dw  0x1200;
+ 155: 4044 00 0C           dw  0x0C00;
+ 156: 4046 00 0C           dw  0x0C00;
+ 157: 4048 00 12           dw  0x1200;
+ 158: 404A 00 21           dw  0x2100;
+ 159: 404C 80 40           dw  0x4080;
+ 160:                    
+ 161:                    // data to draw Os
+ 162:                    O_data_left:
+ 163: 404E 30 00           dw  0x0030;
+ 164: 4050 48 00           dw  0x0048;
+ 165: 4052 84 00           dw  0x0084;
+ 166: 4054 02 01           dw  0x0102;
+ 167: 4056 02 01           dw  0x0102;
+ 168: 4058 84 00           dw  0x0084;
+ 169: 405A 48 00           dw  0x0048;
+ 170: 405C 30 00           dw  0x0030;
+ 171:                    
+ 172:                    O_data_mid:
+ 173: 405E 80 01           dw  0x0180;
+ 174: 4060 40 02           dw  0x0240;
+ 175: 4062 20 04           dw  0x0420;
+ 176: 4064 10 08           dw  0x0810;
+ 177: 4066 10 08           dw  0x0810;
+ 178: 4068 20 04           dw  0x0420;
+ 179: 406A 40 02           dw  0x0240;
+ 180: 406C 80 01           dw  0x0180;
+ 181:                    
+ 182:                    O_data_right:
+ 183: 406E 00 0C           dw  0x0C00;
+ 184: 4070 00 12           dw  0x1200;
+ 185: 4072 00 21           dw  0x2100;
+ 186: 4074 80 40           dw  0x4080;
+ 187: 4076 80 40           dw  0x4080;
+ 188: 4078 00 21           dw  0x2100;
+ 189: 407A 00 12           dw  0x1200;
+ 190: 407C 00 0C           dw  0x0C00;
+ 191:                    
+ 192:                    // data to draw ?s
+ 193:                    Q_data_left:
+ 194: 407E 60 00           dw  0x0060;
+ 195: 4080 90 00           dw  0x0090;
+ 196: 4082 80 00           dw  0x0080;
+ 197: 4084 40 00           dw  0x0040;
+ 198: 4086 20 00           dw  0x0020;
+ 199: 4088 20 00           dw  0x0020;
+ 200: 408A 00 00           dw  0x0000;
+ 201: 408C 20 00           dw  0x0020;
+ 202:                    
+ 203:                    Q_data_mid:
+ 204: 408E 00 03           dw  0x0300;
+ 205: 4090 80 04           dw  0x0480;
+ 206: 4092 00 04           dw  0x0400;
+ 207: 4094 00 02           dw  0x0200;
+ 208: 4096 00 01           dw  0x0100;
+ 209: 4098 00 01           dw  0x0100;
+ 210: 409A 00 00           dw  0x0000;
+ 211: 409C 00 01           dw  0x0100;
+ 212:                    
+ 213:                    Q_data_right:
+ 214: 409E 00 18           dw  0x1800;
+ 215: 40A0 00 24           dw  0x2400;
+ 216: 40A2 00 20           dw  0x2000;
+ 217: 40A4 00 10           dw  0x1000;
+ 218: 40A6 00 08           dw  0x0800;
+ 219: 40A8 00 08           dw  0x0800;
+ 220: 40AA 00 00           dw  0x0000;
+ 221: 40AC 00 08           dw  0x0800;
+ 222:                    
+ 223:                    x_data_table:
+ 224: 40AE 1E 40 2E 40     dw  x_data_left, x_data_mid, x_data_right;
+          3E 40 
+ 225: 40B4 1E 40 2E 40     dw  x_data_left, x_data_mid, x_data_right;
+          3E 40 
+ 226: 40BA 1E 40 2E 40     dw  x_data_left, x_data_mid, x_data_right;
+          3E 40 
+ 227:                    
+ 228:                    O_data_table:
+ 229: 40C0 4E 40 5E 40     dw  O_data_left, O_data_mid, O_data_right;
+          6E 40 
+ 230: 40C6 4E 40 5E 40     dw  O_data_left, O_data_mid, O_data_right;
+          6E 40 
+ 231: 40CC 4E 40 5E 40     dw  O_data_left, O_data_mid, O_data_right;
+          6E 40 
+ 232:                    
+ 233:                    Q_data_table:
+ 234: 40D2 7E 40 8E 40     dw  Q_data_left, Q_data_mid, Q_data_right;
+          9E 40 
+ 235: 40D8 7E 40 8E 40     dw  Q_data_left, Q_data_mid, Q_data_right;
+          9E 40 
+ 236: 40DE 7E 40 8E 40     dw  Q_data_left, Q_data_mid, Q_data_right;
+          9E 40 
+ 237:                    
+ 238: 0001               BOARD_TOP   EQU 1;
+ 239:                    cell_base_address:
+ 240: 40E4 08 A0           dw  INT_RAM_START + (BOARD_TOP +  1)*INT_RAM_BYTES_ACROSS + 0;
+ 241: 40E6 09 A0           dw  INT_RAM_START + (BOARD_TOP +  1)*INT_RAM_BYTES_ACROSS + 1;
+ 242: 40E8 0A A0           dw  INT_RAM_START + (BOARD_TOP +  1)*INT_RAM_BYTES_ACROSS + 2;
+ 243: 40EA 34 A0           dw  INT_RAM_START + (BOARD_TOP + 12)*INT_RAM_BYTES_ACROSS + 0;
+ 244: 40EC 35 A0           dw  INT_RAM_START + (BOARD_TOP + 12)*INT_RAM_BYTES_ACROSS + 1;
+ 245: 40EE 36 A0           dw  INT_RAM_START + (BOARD_TOP + 12)*INT_RAM_BYTES_ACROSS + 2;
+ 246: 40F0 60 A0           dw  INT_RAM_START + (BOARD_TOP + 23)*INT_RAM_BYTES_ACROSS + 0;
+ 247: 40F2 61 A0           dw  INT_RAM_START + (BOARD_TOP + 23)*INT_RAM_BYTES_ACROSS + 1;
+ 248: 40F4 62 A0           dw  INT_RAM_START + (BOARD_TOP + 23)*INT_RAM_BYTES_ACROSS + 2;
+ 249:                    
+ 250:                    // **************************************
+ 251:                    // data for line "I"
+ 252:                    text_line_i:
+ 253: 40F6 00 C0 01 00     db  0x00, 0xC0, 0x01, 0x00;
+ 254: 40FA 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 255: 40FE 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 256: 4102 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 257: 4106 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 258: 410A 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 259: 410E 00 80 00 00     db  0x00, 0x80, 0x00, 0x00;
+ 260: 4112 00 C0 01 00     db  0x00, 0xC0, 0x01, 0x00;
+ 261:                    
+ 262:                    // data for line "You"
+ 263:                    text_line_you:
+ 264: 4116 10 84 21 10     db  0x10, 0x84, 0x21, 0x10;
+ 265: 411A 20 42 22 10     db  0x20, 0x42, 0x22, 0x10;
+ 266: 411E 40 21 24 10     db  0x40, 0x21, 0x24, 0x10;
+ 267: 4122 80 10 28 10     db  0x80, 0x10, 0x28, 0x10;
+ 268: 4126 80 10 28 10     db  0x80, 0x10, 0x28, 0x10;
+ 269: 412A 80 20 24 10     db  0x80, 0x20, 0x24, 0x10;
+ 270: 412E 80 40 22 10     db  0x80, 0x40, 0x22, 0x10;
+ 271: 4132 80 80 C1 0F     db  0x80, 0x80, 0xC1, 0x0F;
+ 272:                    
+ 273:                    // data for line "won"
+ 274:                    text_line_won:
+ 275: 4136 08 84 21 10     db  0x08, 0x84, 0x21, 0x10;
+ 276: 413A 08 44 62 10     db  0x08, 0x44, 0x62, 0x10;
+ 277: 413E 08 24 A4 10     db  0x08, 0x24, 0xa4, 0x10;
+ 278: 4142 08 14 28 11     db  0x08, 0x14, 0x28, 0x11;
+ 279: 4146 08 14 28 12     db  0x08, 0x14, 0x28, 0x12;
+ 280: 414A C8 24 24 14     db  0xC8, 0x24, 0x24, 0x14;
+ 281: 414E 28 45 22 18     db  0x28, 0x45, 0x22, 0x18;
+ 282: 4152 18 86 21 10     db  0x18, 0x86, 0x21, 0x10;
+ 283:                    
+ 284:                    // data for line "we"
+ 285:                    text_line_we:
+ 286: 4156 80 40 FE 00     db  0x80, 0x40, 0xFe, 0x0;
+ 287: 415A 80 40 02 00     db  0x80, 0x40, 0x02, 0x0;
+ 288: 415E 80 40 02 00     db  0x80, 0x40, 0x02, 0x0;
+ 289: 4162 80 40 3E 00     db  0x80, 0x40, 0x3E, 0x0;
+ 290: 4166 80 4C 02 00     db  0x80, 0x4C, 0x02, 0x0;
+ 291: 416A 80 52 02 00     db  0x80, 0x52, 0x02, 0x0;
+ 292: 416E 80 61 02 00     db  0x80, 0x61, 0x02, 0x0;
+ 293: 4172 80 40 FE 00     db  0x80, 0x40, 0xfe, 0x0;
+ 294:                    
+ 295:                    // data for line "drew"
+ 296:                    text_line_drew:
+ 297: 4176 3F 3F 7F 81     db  0x3F, 0x3F, 0x7F, 0x81;
+ 298: 417A 41 41 01 81     db  0x41, 0x41, 0x01, 0x81;
+ 299: 417E 41 41 01 81     db  0x41, 0x41, 0x01, 0x81;
+ 300: 4182 41 3F 1F 81     db  0x41, 0x3F, 0x1F, 0x81;
+ 301: 4186 41 05 01 99     db  0x41, 0x05, 0x01, 0x99;
+ 302: 418A 41 09 01 A5     db  0x41, 0x09, 0x01, 0xa5;
+ 303: 418E 41 11 01 C3     db  0x41, 0x11, 0x01, 0xc3;
+ 304: 4192 3F 21 7F 81     db  0x3F, 0x21, 0x7F, 0x81;
+ 305:                    
+ 306:                    
+ 307:                    // **************************************
+ 308:                    // code....
+ 309: 0000               org  0;
+ 310:                    
+ 311:                    // vectors
+ 312: 0000 F3 10 00        reset:       jmp    start;
+ 313: 0003 FF              nop;
+ 314: 0004 C7              ext_int:     reti;
+ 315: 0005 FF              nop;
+ 316: 0006 FF              nop;
+ 317: 0007 FF              nop;
+ 318: 0008 C7              div_zero:   reti;
+ 319: 0009 FF              nop;
+ 320: 000A FF              nop;
+ 321: 000B FF              nop;
+ 322: 000C C7              illegal:    reti;
+ 323: 000D FF              nop;
+ 324: 000E FF              nop;
+ 325: 000F FF              nop;
+ 326:                    
+ 327:                    // *********************
+ 328:                    // The program....
+ 329:                    start:
+ 330:                    // give ourselves a stack...
+ 331: 0010 D0 00 70        ld.w    r0,#0x7000;
+ 332: 0013 F1              move    sp,r0;
+ 333:                    
+ 334: 0014 D4 01           ld.b    r0,#1;
+ 335: 0016 BC 19 40        st.b    our_mark,r0;
+ 336: 0019 BC 1A 40        st.b    first_move,r0;
+ 337:                    main_loop:
+ 338: 001C B4 1A 40        ld.b    r0,first_move;
+ 339: 001F BC 18 40        st.b    is_our_move,r0;
+ 340: 0022 BC 19 40        st.b    our_mark,r0;
+ 341: 0025 D5 01           ld.b    r1,#1;
+ 342: 0027 24              xor     r0,r1;
+ 343: 0028 BC 1A 40        st.b    first_move,r0;
+ 344: 002B CF 31 00        jsr     play_game;
+ 345: 002E F3 1C 00        jmp     main_loop;
+ 346:                    
+ 347:                    // *******************************************************
+ 348:                    // we expect our_mark and our_move to be set up
+ 349:                    play_game:
+ 350: 0031 CF F2 00        jsr     wait_for_start;
+ 351: 0034 CF BD 00        jsr     init;
+ 352:                    
+ 353:                    pg_1:
+ 354:                    // check for a draw...
+ 355: 0037 B0 16 40        ld.w    r0,all_pieces;
+ 356: 003A D1 FF 01        ld.w    r1,#ALL_PLACES;
+ 357: 003D 74              cmp     r0,r1;
+ 358: 003E E7 62           beq     a_draw;
+ 359:                    
+ 360:                    // work out if our or their move
+ 361: 0040 B4 18 40        ld.b    r0,is_our_move;
+ 362: 0043 E7 0F           beq     pg_2;
+ 363:                    
+ 364: 0045 CF 17 02        jsr     make_our_move;
+ 365: 0048 B0 12 40        ld.w    r0,our_pieces;
+ 366: 004B CF CB 03        jsr     is_line;
+ 367: 004E 10              test    r0;
+ 368: 004F E6 1B           bne     we_won;
+ 369: 0051 F3 60 00        jmp     pg_3;
+ 370:                    pg_2:
+ 371: 0054 CF A3 01        jsr     make_their_move;
+ 372: 0057 B0 14 40        ld.w    r0,their_pieces;
+ 373: 005A CF CB 03        jsr     is_line;
+ 374: 005D 10              test    r0;
+ 375: 005E E6 27           bne     they_won;
+ 376:                    
+ 377:                    pg_3:
+ 378: 0060 B4 18 40        ld.b    r0,is_our_move;
+ 379: 0063 D5 01           ld.b    r1,#1;
+ 380: 0065 24              xor     r0,r1;
+ 381: 0066 BC 18 40        st.b    is_our_move,r0;
+ 382:                    
+ 383: 0069 F3 37 00        jmp     pg_1;
+ 384:                    
+ 385:                    we_won:
+ 386: 006C D2 F6 40        ld.w    r2,#text_line_i;
+ 387: 006F D3 A0 A0        ld.w    r3,#INT_RAM_START + 40*INT_RAM_BYTES_ACROSS;
+ 388: 0072 D4 20           ld.b    r0,#4*8;
+ 389:                    ww1:
+ 390: 0074 95              ld.b    r1,(r2++);
+ 391: 0075 9F              st.b    (r3++),r1;
+ 392: 0076 5C              dec r0;
+ 393: 0077 E6 FB           bne ww1;
+ 394: 0079 D2 36 41        ld.w    r2,#text_line_won;
+ 395: 007C D3 C8 A0        ld.w    r3,#INT_RAM_START + 50*INT_RAM_BYTES_ACROSS;
+ 396: 007F D4 20           ld.b    r0,#4*8;
+ 397:                    ww2:
+ 398: 0081 95              ld.b    r1,(r2++);
+ 399: 0082 9F              st.b    (r3++),r1;
+ 400: 0083 5C              dec r0;
+ 401: 0084 E6 FB           bne ww2;
+ 402: 0086 C6              ret;
+ 403:                    they_won:
+ 404: 0087 D2 16 41        ld.w    r2,#text_line_you;
+ 405: 008A D3 A0 A0        ld.w    r3,#INT_RAM_START + 40*INT_RAM_BYTES_ACROSS;
+ 406: 008D D4 20           ld.b    r0,#4*8;
+ 407:                    tw1:
+ 408: 008F 95              ld.b    r1,(r2++);
+ 409: 0090 9F              st.b    (r3++),r1;
+ 410: 0091 5C              dec r0;
+ 411: 0092 E6 FB           bne tw1;
+ 412: 0094 D2 36 41        ld.w    r2,#text_line_won;
+ 413: 0097 D3 C8 A0        ld.w    r3,#INT_RAM_START + 50*INT_RAM_BYTES_ACROSS;
+ 414: 009A D4 20           ld.b    r0,#4*8;
+ 415:                    tw2:
+ 416: 009C 95              ld.b    r1,(r2++);
+ 417: 009D 9F              st.b    (r3++),r1;
+ 418: 009E 5C              dec r0;
+ 419: 009F E6 FB           bne tw2;
+ 420: 00A1 C6              ret;
+ 421:                    a_draw:
+ 422: 00A2 D2 56 41        ld.w    r2,#text_line_we;
+ 423: 00A5 D3 A0 A0        ld.w    r3,#INT_RAM_START + 40*INT_RAM_BYTES_ACROSS;
+ 424: 00A8 D4 20           ld.b    r0,#4*8;
+ 425:                    ad1:
+ 426: 00AA 95              ld.b    r1,(r2++);
+ 427: 00AB 9F              st.b    (r3++),r1;
+ 428: 00AC 5C              dec r0;
+ 429: 00AD E6 FB           bne ad1;
+ 430: 00AF D2 76 41        ld.w    r2,#text_line_drew;
+ 431: 00B2 D3 C8 A0        ld.w    r3,#INT_RAM_START + 50*INT_RAM_BYTES_ACROSS;
+ 432: 00B5 D4 20           ld.b    r0,#4*8;
+ 433:                    ad2:
+ 434: 00B7 95              ld.b    r1,(r2++);
+ 435: 00B8 9F              st.b    (r3++),r1;
+ 436: 00B9 5C              dec r0;
+ 437: 00BA E6 FB           bne ad2;
+ 438: 00BC C6              ret;
+ 439:                    
+ 440:                    // *******************************************************
+ 441:                    // clear memory and set up the board
+ 442:                    init:
+ 443:                    // clear pieces
+ 444: 00BD 20              xor     r0,r0;
+ 445: 00BE B8 12 40        st.w    our_pieces,r0;
+ 446: 00C1 B8 14 40        st.w    their_pieces,r0;
+ 447: 00C4 B8 16 40        st.w    all_pieces,r0;
+ 448:                    
+ 449:                    // draw the board
+ 450:                    // ==============
+ 451:                    // clear
+ 452: 00C7 20              xor     r0,r0;
+ 453: 00C8 D2 00 A0        ld.w    r2,#INT_RAM_START;
+ 454: 00CB D1 00 01        ld.w    r1,#INT_RAM_LEN;
+ 455:                    clr_loop:
+ 456: 00CE 98              st.w    (r2++),r0;
+ 457: 00CF 59              addq    r1,#-2;
+ 458: 00D0 E6 FC           bne     clr_loop;
+ 459:                    
+ 460:                    // vertical ...
+ 461: 00D2 D4 20           ld.b    r0,#32;
+ 462: 00D4 D1 04 20        ld.w    r1,#0x2004;
+ 463: 00D7 D2 05 A0        ld.w    r2,#INT_RAM_START + (BOARD_TOP)*INT_RAM_BYTES_ACROSS + 1;
+ 464:                    vert_loop:
+ 465: 00DA 99              st.w    (r2++),r1;
+ 466: 00DB 52              addq    r2,#2;
+ 467: 00DC 5C              dec     r0;
+ 468: 00DD E6 FB           bne     vert_loop;
+ 469:                    
+ 470:                    // horizontal....
+ 471: 00DF D0 FF FF        ld.w    r0,#0xFFFF;
+ 472: 00E2 B8 2C A0        st.w    INT_RAM_START + (BOARD_TOP + 10)*INT_RAM_BYTES_ACROSS + 0,R0;
+ 473: 00E5 B8 58 A0        st.w    INT_RAM_START + (BOARD_TOP + 21)*INT_RAM_BYTES_ACROSS + 0,R0;
+ 474: 00E8 D0 FF FF        ld.w    r0,#0xFFFF;
+ 475: 00EB B8 2E A0        st.w    INT_RAM_START + (BOARD_TOP + 10)*INT_RAM_BYTES_ACROSS + 2,R0;
+ 476: 00EE B8 5A A0        st.w    INT_RAM_START + (BOARD_TOP + 21)*INT_RAM_BYTES_ACROSS + 2,R0;
+ 477:                    
+ 478: 00F1 C6              ret;
+ 479:                    
+ 480:                    // *******************************************************
+ 481:                    // looking for an up, so must first wait for it being down
+ 482:                    wait_for_start:
+ 483: 00F2 D1 10 00        ld.w    r1, #IO_SWITCH_FLAG_SQUARE;
+ 484:                    wfs_1:
+ 485: 00F5 B0 32 80        ld.w    r0, GEN_IO_INPUT;
+ 486: 00F8 14              and     r0,r1;
+ 487: 00F9 E7 FA           beq     wfs_1;
+ 488:                    
+ 489:                    // its down, now wait for an up
+ 490:                    wfs_2:
+ 491: 00FB B0 32 80        ld.w    r0, GEN_IO_INPUT;
+ 492: 00FE 14              and     r0,r1;
+ 493: 00FF E6 FA           bne     wfs_2;
+ 494:                    
+ 495: 0101 C6              ret;
+ 496:                    
+ 497:                    // *******************************************************
+ 498:                    // preserve registers, index in R0
+ 499:                    draw_X:
+ 500: 0102 C8              push    r0;
+ 501: 0103 C9              push    r1;
+ 502: 0104 CA              push    r2;
+ 503: 0105 CB              push    r3;
+ 504:                    
+ 505: 0106 40              add     r0,r0;
+ 506: 0107 D2 AE 40        ld.w    r2,#x_data_table;
+ 507: 010A 42              add     r2,r0;
+ 508: 010B 81              ld.w    r1,(r2);
+ 509: 010C 06              move    r2,r1;
+ 510: 010D D3 E4 40        ld.w    r3,#cell_base_address;
+ 511: 0110 43              add     r3,r0;
+ 512: 0111 83              ld.w    r1,(r3);
+ 513: 0112 07              move    r3,r1;
+ 514: 0113 F3 2A 01        jmp     draw_X_O;
+ 515:                    
+ 516:                    
+ 517:                    draw_O:
+ 518: 0116 C8              push    r0;
+ 519: 0117 C9              push    r1;
+ 520: 0118 CA              push    r2;
+ 521: 0119 CB              push    r3;
+ 522:                    
+ 523: 011A 40              add     r0,r0;
+ 524: 011B D2 C0 40        ld.w    r2,#O_data_table;
+ 525: 011E 42              add     r2,r0;
+ 526: 011F 81              ld.w    r1,(r2);
+ 527: 0120 06              move    r2,r1;
+ 528: 0121 D3 E4 40        ld.w    r3,#cell_base_address;
+ 529: 0124 43              add     r3,r0;
+ 530: 0125 83              ld.w    r1,(r3);
+ 531: 0126 07              move    r3,r1;
+ 532: 0127 F3 2A 01        jmp     draw_X_O;
+ 533:                    
+ 534:                    draw_X_O:
+ 535: 012A D4 08           ld.b    r0,#8;
+ 536:                    dx0_1:
+ 537: 012C C8              push    r0;
+ 538: 012D 82              ld.w    r0,(r3);
+ 539: 012E 91              ld.w    r1,(r2++);
+ 540: 012F 31              or      r1,r0;
+ 541: 0130 9B              st.w    (r3++),r1;
+ 542: 0131 53              addq    r3,#2;
+ 543: 0132 C0              pop     r0;
+ 544: 0133 5C              dec     r0;
+ 545: 0134 E6 F6           bne     dx0_1;
+ 546:                    
+ 547: 0136 C3              pop     r3;
+ 548: 0137 C2              pop     r2;
+ 549: 0138 C1              pop     r1;
+ 550: 0139 C0              pop     r0;
+ 551: 013A C6              ret;
+ 552:                    
+ 553:                    
+ 554:                    draw_Q:
+ 555: 013B C8              push    r0;
+ 556: 013C C9              push    r1;
+ 557: 013D CA              push    r2;
+ 558: 013E CB              push    r3;
+ 559:                    
+ 560: 013F 40              add     r0,r0;
+ 561: 0140 D2 D2 40        ld.w    r2,#Q_data_table;
+ 562: 0143 42              add     r2,r0;
+ 563: 0144 81              ld.w    r1,(r2);
+ 564: 0145 06              move    r2,r1;
+ 565: 0146 D3 E4 40        ld.w    r3,#cell_base_address;
+ 566: 0149 43              add     r3,r0;
+ 567: 014A 83              ld.w    r1,(r3);
+ 568: 014B 07              move    r3,r1;
+ 569:                    
+ 570: 014C D4 08           ld.b    r0,#8;
+ 571:                    dq_1:
+ 572: 014E C8              push    r0;
+ 573: 014F 82              ld.w    r0,(r3);
+ 574: 0150 91              ld.w    r1,(r2++);
+ 575: 0151 21              xor     r1,r0;
+ 576: 0152 9B              st.w    (r3++),r1;
+ 577: 0153 53              addq    r3,#2;
+ 578: 0154 C0              pop     r0;
+ 579: 0155 5C              dec     r0;
+ 580: 0156 E6 F6           bne     dq_1;
+ 581:                    
+ 582: 0158 C3              pop     r3;
+ 583: 0159 C2              pop     r2;
+ 584: 015A C1              pop     r1;
+ 585: 015B C0              pop     r0;
+ 586: 015C C6              ret;
+ 587:                    
+ 588:                    
+ 589:                    
+ 590:                    // *******************************************************
+ 591:                    draw_our_pieces:
+ 592: 015D B0 12 40        ld.w    r0,our_pieces;
+ 593: 0160 B5 19 40        ld.b    r1,our_mark;
+ 594: 0163 E7 04           beq     dop_1;
+ 595: 0165 CF 7D 01        jsr     draw_Xs;
+ 596: 0168 C6              ret;
+ 597:                    dop_1:
+ 598: 0169 CF 90 01        jsr     draw_Os;
+ 599: 016C C6              ret;
+ 600:                    
+ 601:                    draw_their_pieces:
+ 602: 016D B0 14 40        ld.w    r0,their_pieces;
+ 603: 0170 B5 19 40        ld.b    r1,our_mark;
+ 604: 0173 E6 04           bne     dtp_1;
+ 605: 0175 CF 7D 01        jsr     draw_Xs;
+ 606: 0178 C6              ret;
+ 607:                    dtp_1:
+ 608: 0179 CF 90 01        jsr     draw_Os;
+ 609: 017C C6              ret;
+ 610:                    
+ 611:                    
+ 612:                    draw_Xs:
+ 613: 017D 02              move    r2,r0;  // put piecse mask in R2
+ 614: 017E D5 01           ld.b    r1,#1;  // test
+ 615: 0180 20              xor     r0,r0;  // index
+ 616:                    
+ 617:                    dx_2:
+ 618: 0181 0B              move    r3,r2;
+ 619: 0182 17              and     r3,r1;
+ 620: 0183 E7 03           beq     dx_1;
+ 621: 0185 CF 02 01        jsr     draw_x;
+ 622:                    dx_1:
+ 623: 0188 45              add     r1,r1;  // move to next
+ 624: 0189 54              inc     r0;
+ 625: 018A D7 09           ld.b    r3,#9;
+ 626: 018C 73              cmp     r3,r0;
+ 627: 018D E6 F2           bne     dx_2;
+ 628:                    
+ 629: 018F C6              ret;
+ 630:                    
+ 631:                    draw_Os:
+ 632: 0190 02              move    r2,r0;  // put piecse mask in R2
+ 633: 0191 D5 01           ld.b    r1,#1;  // test
+ 634: 0193 20              xor     r0,r0;  // index
+ 635:                    
+ 636:                    do_2:
+ 637: 0194 0B              move    r3,r2;
+ 638: 0195 17              and     r3,r1;
+ 639: 0196 E7 03           beq     do_1;
+ 640: 0198 CF 16 01        jsr     draw_o;
+ 641:                    do_1:
+ 642: 019B 45              add     r1,r1;  // move to next
+ 643: 019C 54              inc     r0;
+ 644: 019D D7 09           ld.b    r3,#9;
+ 645: 019F 73              cmp     r3,r0;
+ 646: 01A0 E6 F2           bne     do_2;
+ 647:                    
+ 648: 01A2 C6              ret;
+ 649:                    
+ 650:                    // *******************************************************
+ 651:                    // put a query in the first available position, then let them move it round on each
+ 652:                    // 01 edge on the joystick bits
+ 653:                    // use the fire flag to make the selection
+ 654:                    make_their_move:
+ 655: 01A3 D4 00           ld.b    r0,#0;  // starting pos test
+ 656: 01A5 D6 01           ld.b    r2,#1;
+ 657:                    mtm_1:
+ 658: 01A7 B1 16 40        ld.w    r1,all_pieces;
+ 659: 01AA 19              and     r1,r2;
+ 660: 01AB E7 05           beq     mtm_2;
+ 661: 01AD 54              inc     r0;
+ 662: 01AE 4A              add     r2,r2;  // move to next
+ 663: 01AF F3 A7 01        jmp     mtm_1;
+ 664:                    mtm_2:
+ 665:                    // we have an empty slot in R0
+ 666: 01B2 CF 3B 01        jsr     draw_q;
+ 667:                    
+ 668:                    // now we loop around looking for either a fire or a joystick move
+ 669:                    // first wait till cleared
+ 670:                    mtm_loop:
+ 671: 01B5 D3 FF FF        ld.w    r3,#0xFFFF;
+ 672:                    mtm_lx:
+ 673: 01B8 B1 32 80        ld.w    r1,GEN_IO_INPUT;
+ 674: 01BB 7D              cmp     r1,r3;
+ 675: 01BC E6 FA           bne     mtm_lx;
+ 676:                    
+ 677:                    // cleared now loop looking for signal
+ 678:                    mem_wait_for_signal:
+ 679: 01BE B1 32 80        ld.w    r1,GEN_IO_INPUT;
+ 680: 01C1 D2 00 04        ld.w    r2,#IO_SWITCH_FLAG_R1;
+ 681: 01C4 16              and     r2,r1;
+ 682: 01C5 E7 35           beq     mtm_go;              // got a GO
+ 683:                    
+ 684: 01C7 D3 FF FF        ld.w    r3,#-1;
+ 685: 01CA D2 04 00        ld.w    r2,#IO_SWITCH_FLAG_LEFT;
+ 686: 01CD 16              and     r2,r1;
+ 687: 01CE E7 09           beq     do_move;
+ 688:                    
+ 689: 01D0 D3 01 00        ld.w    r3,#+1;
+ 690: 01D3 D2 08 00        ld.w    r2,#IO_SWITCH_FLAG_RIGHT;
+ 691: 01D6 16              and     r2,r1;
+ 692: 01D7 E6 E5           bne     mem_wait_for_signal;              // not right, not anything
+ 693:                    
+ 694:                    do_move:
+ 695:                    // first delete the Q
+ 696: 01D9 CF 3B 01        jsr     draw_Q;
+ 697:                    
+ 698:                    // now do the move, R3 has the increment, we need to keep going it till we have a space
+ 699:                    mtm_search:
+ 700: 01DC 4C              add     r0,r3;      // new position
+ 701: 01DD EA 05           bpl     mtm_10;
+ 702: 01DF D4 08           ld.b    r0,#8;
+ 703: 01E1 F3 EA 01        jmp     mtm_11;
+ 704:                    mtm_10:
+ 705: 01E4 D6 09           ld.b    r2,#9;
+ 706: 01E6 78              cmp     r0,r2;
+ 707: 01E7 E6 01           bne     mtm_11;
+ 708: 01E9 20              clr     r0;
+ 709:                    mtm_11:
+ 710: 01EA D2 00 40        ld.w    r2,#place_masks;                  // check free
+ 711: 01ED 42              add     r2,r0;
+ 712: 01EE 42              add     r2,r0;
+ 713: 01EF 81              ld.w    r1,(r2);                // mask for new place
+ 714: 01F0 B2 16 40        ld.w    r2,all_pieces;
+ 715: 01F3 19              and     r1,r2;
+ 716: 01F4 E6 E6           bne     mtm_search; // need to try next place
+ 717:                    // space is clear,
+ 718: 01F6 CF 3B 01        jsr     draw_Q;
+ 719: 01F9 F3 B5 01        jmp     mtm_loop;
+ 720:                    
+ 721:                    // said go
+ 722:                    mtm_go:
+ 723: 01FC CF 3B 01        jsr     draw_Q;
+ 724: 01FF D2 00 40        ld.w    r2,#place_masks;                  // need to set flag
+ 725: 0202 42              add     r2,r0;
+ 726: 0203 42              add     r2,r0;
+ 727: 0204 81              ld.w    r1,(r2);
+ 728: 0205 B0 14 40        ld.w    r0,their_pieces;
+ 729: 0208 34              or      r0,r1;
+ 730: 0209 B8 14 40        st.w    their_pieces,r0;
+ 731: 020C B0 16 40        ld.w    r0,all_pieces;
+ 732: 020F 34              or      r0,r1;
+ 733: 0210 B8 16 40        st.w    all_pieces,r0;
+ 734: 0213 CF 6D 01        jsr     draw_their_pieces;
+ 735: 0216 C6              ret;
+ 736:                    
+ 737:                    // *******************************************************
+ 738:                    // if opponent has won, or we have a draw then we will not come here
+ 739:                    make_our_move:
+ 740:                    
+ 741:                    // 6. centre... whether or not we're first we'll play in the middle if we can, so might as well check it first.
+ 742: 0217 D0 10 00        ld.w    r0,#M_CENTRE;
+ 743: 021A B1 16 40        ld.w    r1,all_pieces;
+ 744: 021D 11              and     r1,r0;
+ 745: 021E E7 43           beq     fm_1;
+ 746:                    
+ 747:                    // 1. can I win
+ 748: 0220 B0 12 40        ld.w    r0,our_pieces;
+ 749: 0223 B1 16 40        ld.w    r1,all_pieces;
+ 750: 0226 CF A2 03        jsr     can_form_line;
+ 751: 0229 B0 1C 40        ld.w    r0,cfl_candidate;
+ 752: 022C B5 1B 40        ld.b    r1,cfl_n_candidates;
+ 753: 022F E6 32           bne fm_1;
+ 754:                    
+ 755:                    // 2. block opponent
+ 756: 0231 B0 14 40        ld.w    r0,their_pieces;
+ 757: 0234 B1 16 40        ld.w    r1,all_pieces;
+ 758: 0237 CF A2 03        jsr     can_form_line;
+ 759: 023A B0 1C 40        ld.w    r0,cfl_candidate;
+ 760: 023D B5 1B 40        ld.b    r1,cfl_n_candidates;
+ 761: 0240 E6 21           bne     fm_1;
+ 762:                    
+ 763:                    // 3. can I create a fork ?
+ 764: 0242 CF D5 02        jsr     fork_for_me;
+ 765: 0245 10              test    r0;
+ 766: 0246 E6 1B           bne     fm_1;
+ 767:                    
+ 768:                    // 4. can we create 2 in a row that does not force opponent to create a fork ?
+ 769: 0248 CF 75 02        jsr     two_for_me;
+ 770: 024B 10              test    r0;
+ 771: 024C E6 15           bne     fm_1;
+ 772:                    
+ 773:                    // 5. stop opponent creating a fork
+ 774: 024E CF B0 02        jsr     stop_fork_for_them;
+ 775: 0251 10              test    r0;
+ 776: 0252 E6 0F           bne     fm_1;
+ 777:                    
+ 778:                    // 7. opposite corner
+ 779: 0254 CF 09 03        jsr     find_opposite_corner;
+ 780: 0257 10              test    r0;
+ 781: 0258 E6 09           bne     fm_1;
+ 782:                    
+ 783:                    // 8. corner
+ 784: 025A CF 55 03        jsr     find_corner;
+ 785: 025D 10              test    r0;
+ 786: 025E E6 03           bne     fm_1;
+ 787:                    
+ 788:                    // 9. side
+ 789: 0260 CF 7C 03        jsr     find_empty_side; // must succeed
+ 790:                    //test  r0;
+ 791:                    //bne   fm_1;
+ 792:                    
+ 793:                    fm_1:   // we have a move, mask value in r0
+ 794: 0263 B1 12 40        ld.w    r1,our_pieces;
+ 795: 0266 31              or      r1,r0;
+ 796: 0267 B9 12 40        st.w    our_pieces,r1;
+ 797: 026A B1 16 40        ld.w    r1,all_pieces;
+ 798: 026D 31              or      r1,r0;
+ 799: 026E B9 16 40        st.w    all_pieces,r1;
+ 800:                    
+ 801: 0271 CF 5D 01        jsr     draw_our_pieces;
+ 802:                    
+ 803: 0274 C6              ret;
+ 804:                    
+ 805:                    // *******************************************************
+ 806:                    // look to see if can start to form a line somewhere
+ 807:                    // (but need to check that the forced response of our opponnent
+ 808:                    // isn't a fork).
+ 809:                    two_for_me:
+ 810: 0275 D7 01           ld.b    r3,#1;      // test mask
+ 811: 0277 D6 09           ld.b    r2,#9;      // test 9 places
+ 812:                    
+ 813:                    tfm_1:  // main loop
+ 814: 0279 B0 16 40        ld.w    r0,all_pieces;
+ 815: 027C 1C              and     r0,r3;
+ 816: 027D E6 2B           bne     tfm_2;      // already occupied
+ 817:                    
+ 818:                    // so there is a space here, see if we could win if we played here
+ 819: 027F B0 12 40        ld.w    r0,our_pieces;
+ 820: 0282 B1 16 40        ld.w    r1,all_pieces;
+ 821: 0285 3C              or      r0,r3;
+ 822: 0286 3D              or      r1,r3;
+ 823: 0287 CF A2 03        jsr     can_form_line;
+ 824: 028A B4 1B 40        ld.b    r0,cfl_n_candidates;
+ 825: 028D E7 1B           beq     tfm_2;      // no
+ 826:                    
+ 827:                    // yes, check that we're not forcing opponent to create a fork
+ 828:                    // our candidate move is R3, if they want to stop us they play cfl_candidate
+ 829:                    // so would they have a fork then ?
+ 830: 028F CB              push    r3; // cretae some workspace
+ 831: 0290 B1 16 40        ld.w    r1, all_pieces;  // r1 is all pieces, include our candidate
+ 832: 0293 3D              or      r1,r3;
+ 833: 0294 B0 14 40        ld.w    r0, their_pieces;   // load in their proposed play into r0
+ 834: 0297 B3 1C 40        ld.w    r3,cfl_candidate;
+ 835: 029A 3C              or      r0,r3;
+ 836: 029B 3D              or      r1,r3;
+ 837: 029C C3              pop     r3;
+ 838: 029D CF A2 03        jsr     can_form_line;
+ 839: 02A0 B4 1B 40        ld.b    r0,cfl_n_candidates;
+ 840: 02A3 D5 02           ld.b    r1,#2;
+ 841: 02A5 74              cmp     r0,r1;
+ 842: 02A6 EA 02           bpl     tfm_2;  // opponent will create a fork with his required response,
+ 843:                    // so don't do this
+ 844:                    
+ 845:                    // looking good, go for it
+ 846: 02A8 0C              move    r0,r3;
+ 847: 02A9 C6              ret;
+ 848:                    
+ 849:                    tfm_2:
+ 850: 02AA 4F              add     r3,r3;
+ 851: 02AB 5E              dec     r2;
+ 852: 02AC E6 CB           bne     tfm_1;
+ 853:                    
+ 854: 02AE 20              clr     r0;
+ 855:                    
+ 856: 02AF C6              ret;
+ 857:                    
+ 858:                    // *******************************************************
+ 859:                    // look if there is sokewhere thy could go that would be a fork,
+ 860:                    // if so then go there to top them
+ 861:                    stop_fork_for_them:
+ 862: 02B0 D7 01           ld.b    r3,#1;      // test mask
+ 863: 02B2 D6 09           ld.b    r2,#9;      // test 9 places
+ 864:                    
+ 865:                    sffm_1: // main loop
+ 866: 02B4 B0 16 40        ld.w    r0,all_pieces;
+ 867: 02B7 1C              and     r0,r3;
+ 868: 02B8 E6 15           bne     sffm_2;     // already occupied
+ 869:                    
+ 870:                    // so there is a space here, see if would be fork for them
+ 871: 02BA B0 14 40        ld.w    r0,their_pieces;
+ 872: 02BD B1 16 40        ld.w    r1,all_pieces;
+ 873: 02C0 3C              or      r0,r3;
+ 874: 02C1 3D              or      r1,r3;
+ 875: 02C2 CF A2 03        jsr     can_form_line;
+ 876: 02C5 B4 1B 40        ld.b    r0,cfl_n_candidates;
+ 877: 02C8 D5 02           ld.b    r1,#2;
+ 878: 02CA 74              cmp     r0,r1;
+ 879: 02CB EB 02           bmi     sffm_2; // no
+ 880:                    
+ 881:                    // it does, so we must go there
+ 882: 02CD 0C              move    r0,r3;
+ 883: 02CE C6              ret;
+ 884:                    
+ 885:                    sffm_2:
+ 886: 02CF 4F              add     r3,r3;
+ 887: 02D0 5E              dec     r2;
+ 888: 02D1 E6 E1           bne     sffm_1;
+ 889: 02D3 20              clr     r0;
+ 890:                    
+ 891: 02D4 C6              ret;
+ 892:                    
+ 893:                    
+ 894:                    // *******************************************************
+ 895:                    // look to see if I can create a fork
+ 896:                    fork_for_me:
+ 897:                    
+ 898: 02D5 B0 12 40        ld.w    r0,our_pieces;
+ 899: 02D8 B1 16 40        ld.w    r1,all_pieces;
+ 900: 02DB CF DF 02        jsr     create_a_fork;
+ 901: 02DE C6              ret;
+ 902:                    
+ 903:                    // *******************************************************
+ 904:                    // look to see if can create a fork
+ 905:                    // r0 is set for player
+ 906:                    // r1 is the occupied set
+ 907:                    // preserve r2,r3
+ 908:                    create_a_fork:
+ 909: 02DF CA              push    r2;
+ 910: 02E0 CB              push    r3;
+ 911: 02E1 D7 01           ld.b    r3,#1;      // test mask
+ 912: 02E3 D6 09           ld.b    r2,#9;      // test 9 places
+ 913:                    
+ 914:                    caf_1:  // the main loop
+ 915: 02E5 C8              push    r0;     // need to save r0/1 across loop
+ 916: 02E6 C9              push    r1;
+ 917:                    
+ 918: 02E7 1D              and     r1,r3;
+ 919: 02E8 E6 15           bne     caf_2;
+ 920:                    // there is a space...try adding it to the set and see if can get a fork
+ 921: 02EA 3C              or      r0,r3;
+ 922: 02EB C1              pop     r1;
+ 923: 02EC C9              push    r1;
+ 924: 02ED 3D              or      r1,r3;
+ 925: 02EE CF A2 03        jsr     can_form_line;
+ 926: 02F1 B4 1B 40        ld.b    r0,cfl_n_candidates;
+ 927: 02F4 D5 02           ld.b    r1,#2;
+ 928: 02F6 74              cmp     r0,r1;
+ 929: 02F7 EB 06           bmi     caf_2;
+ 930:                    
+ 931:                    // we have a fork !
+ 932: 02F9 C1              pop     r1;
+ 933: 02FA C0              pop     r0;
+ 934: 02FB 0C              move    r0,r3;
+ 935: 02FC C3              pop     r3;
+ 936: 02FD C2              pop     r2;
+ 937: 02FE C6              ret;
+ 938:                    
+ 939:                    caf_2:  // loop around
+ 940: 02FF C1              pop     r1;
+ 941: 0300 C0              pop     r0;
+ 942: 0301 4F              add     r3,r3;
+ 943: 0302 5E              dec     r2;
+ 944: 0303 E6 E0           bne     caf_1;
+ 945:                    
+ 946: 0305 C3              pop     r3;
+ 947: 0306 C2              pop     r2;
+ 948: 0307 20              clr     r0;
+ 949: 0308 C6              ret;
+ 950:                    
+ 951:                    // *******************************************************
+ 952:                    // see if opponent is in one corner whilst the opposite is free, if so take it.
+ 953:                    find_opposite_corner:
+ 954: 0309 B1 14 40        ld.w    r1,their_pieces;
+ 955: 030C D0 00 01        ld.w    r0,#M_BOT_RIGHT;
+ 956: 030F 14              and     r0,r1;
+ 957: 0310 E7 09           beq     foc_10;
+ 958: 0312 B1 16 40        ld.w    r1,all_pieces;
+ 959: 0315 D0 01 00        ld.w    r0,#M_TOP_LEFT;
+ 960: 0318 11              and     r1,r0;
+ 961: 0319 E7 39           beq     foc_1;
+ 962:                    foc_10:
+ 963:                    
+ 964: 031B B1 14 40        ld.w    r1,their_pieces;
+ 965: 031E D0 40 00        ld.w    r0,#M_BOT_LEFT;
+ 966: 0321 14              and     r0,r1;
+ 967: 0322 E7 09           beq     foc_20;
+ 968: 0324 B1 16 40        ld.w    r1,all_pieces;
+ 969: 0327 D0 04 00        ld.w    r0,#M_TOP_RIGHT;
+ 970: 032A 11              and     r1,r0;
+ 971: 032B E7 27           beq     foc_1;
+ 972:                    foc_20:
+ 973:                    
+ 974: 032D B1 14 40        ld.w    r1,their_pieces;
+ 975: 0330 D0 04 00        ld.w    r0,#M_TOP_RIGHT;
+ 976: 0333 14              and     r0,r1;
+ 977: 0334 E7 09           beq     foc_30;
+ 978: 0336 B1 16 40        ld.w    r1,all_pieces;
+ 979: 0339 D0 40 00        ld.w    r0,#M_BOT_LEFT;
+ 980: 033C 11              and     r1,r0;
+ 981: 033D E7 15           beq     foc_1;
+ 982:                    foc_30:
+ 983:                    
+ 984: 033F B1 14 40        ld.w    r1,their_pieces;
+ 985: 0342 D0 01 00        ld.w    r0,#M_TOP_LEFT;
+ 986: 0345 14              and     r0,r1;
+ 987: 0346 E7 09           beq     foc_40;
+ 988: 0348 B1 16 40        ld.w    r1,all_pieces;
+ 989: 034B D0 00 01        ld.w    r0,#M_BOT_RIGHT;
+ 990: 034E 11              and     r1,r0;
+ 991: 034F E7 03           beq     foc_1;
+ 992:                    
+ 993: 0351 FF              foc_40: nop;
+ 994:                    // no opposite corner
+ 995: 0352 20              xor     r0,r0;
+ 996: 0353 FF              nop;
+ 997:                    
+ 998:                    foc_1:
+ 999: 0354 C6              ret;
+1000:                    
+1001:                    // *******************************************************
+1002:                    // if there is an empty corner return it in r0, otherwise return 0
+1003:                    find_corner:
+1004: 0355 B1 16 40        ld.w    r1,all_pieces;
+1005: 0358 D0 01 00        ld.w    r0,#M_TOP_LEFT;
+1006: 035B 11              and     r1,r0;
+1007: 035C E7 1D           beq     fc_1;
+1008:                    
+1009: 035E B1 16 40        ld.w    r1,all_pieces;
+1010: 0361 D0 04 00        ld.w    r0,#M_TOP_RIGHT;
+1011: 0364 11              and     r1,r0;
+1012: 0365 E7 14           beq     fc_1;
+1013:                    
+1014: 0367 B1 16 40        ld.w    r1,all_pieces;
+1015: 036A D0 40 00        ld.w    r0,#M_BOT_LEFT;
+1016: 036D 11              and     r1,r0;
+1017: 036E E7 0B           beq     fc_1;
+1018:                    
+1019: 0370 B1 16 40        ld.w    r1,all_pieces;
+1020: 0373 D0 00 01        ld.w    r0,#M_BOT_RIGHT;
+1021: 0376 11              and     r1,r0;
+1022: 0377 E7 02           beq     fc_1;
+1023:                    
+1024:                    // no spare corner
+1025: 0379 20              xor     r0,r0;
+1026: 037A FF              nop;
+1027:                    fc_1:
+1028: 037B C6              ret;
+1029:                    
+1030:                    // *******************************************************
+1031:                    // if there is an empty side return it in r0, otherwise return 0
+1032:                    find_empty_side:
+1033: 037C B1 16 40        ld.w    r1,all_pieces;
+1034: 037F D0 02 00        ld.w    r0,#M_MID_TOP;
+1035: 0382 11              and     r1,r0;
+1036: 0383 E7 1C           beq     fe_1;
+1037:                    
+1038: 0385 B1 16 40        ld.w    r1,all_pieces;
+1039: 0388 D0 80 00        ld.w    r0,#M_MID_BOT;
+1040: 038B 11              and r1,r0;
+1041: 038C E7 13           beq fe_1;
+1042:                    
+1043: 038E B1 16 40        ld.w    r1,all_pieces;
+1044: 0391 D0 08 00        ld.w    r0,#M_MID_LEFT;
+1045: 0394 11              and     r1,r0;
+1046: 0395 E7 0A           beq     fe_1;
+1047:                    
+1048: 0397 B1 16 40        ld.w    r1,all_pieces;
+1049: 039A D0 20 00        ld.w    r0,#M_MID_RIGHT;
+1050: 039D 11              and     r1,r0;
+1051: 039E E7 01           beq     fe_1;
+1052:                    
+1053:                    // no spare edge
+1054:                    //    nop;
+1055: 03A0 20              clr     r0;
+1056:                    fe_1:
+1057: 03A1 C6              ret;
+1058:                    
+1059:                    // *******************************************************
+1060:                    // look to see how many lines can be formed
+1061:                    // player mask value in r0, all occupied in r1
+1062:                    // Results stored in cfl_candidate & cfl_n_candidates
+1063:                    // (If there are multiple lines that can be formed we store the inex of the last one).
+1064:                    // Preserves r1,r2,r3
+1065:                    can_form_line:
+1066: 03A2 CA              push    r2;
+1067: 03A3 CB              push    r3;
+1068:                    
+1069: 03A4 2F              clr     r3;
+1070: 03A5 BF 1B 40        st.b    cfl_n_candidates,r3;
+1071: 03A8 D7 01           ld.b    r3,#1;      // test mask
+1072: 03AA D6 09           ld.b    r2,#9;      // test 9 places
+1073:                    
+1074:                    cfl_3:  // the main loop
+1075: 03AC C9              push    r1; // save across loop
+1076: 03AD 1D              and     r1,r3;
+1077: 03AE E6 13           bne     cfl_1;  // skip if already occupied
+1078:                    
+1079:                    // there is a space...
+1080: 03B0 C8              push    r0;
+1081: 03B1 3C              or      r0,r3;      // form candidate
+1082: 03B2 CF CB 03        jsr     is_line;
+1083: 03B5 10              test    r0;
+1084: 03B6 E7 0A           beq     cfl_2;
+1085:                    // can form a line, update count and store candidate
+1086: 03B8 BB 1C 40        st.w    cfl_candidate,r3;
+1087: 03BB B5 1B 40        ld.b    r1,cfl_n_candidates;
+1088: 03BE 55              inc     r1;
+1089: 03BF BD 1B 40        st.b    cfl_n_candidates,r1;
+1090:                    cfl_2:
+1091: 03C2 C0              pop r0;
+1092:                    
+1093:                    cfl_1:  // loop around
+1094: 03C3 C1              pop     r1;
+1095: 03C4 4F              add     r3,r3;
+1096: 03C5 5E              dec     r2;
+1097: 03C6 E6 E4           bne     cfl_3;
+1098:                    
+1099:                    // restore registers
+1100: 03C8 C3              pop     r3;
+1101: 03C9 C2              pop     r2;
+1102:                    
+1103: 03CA C6              ret;
+1104:                    
+1105:                    // *******************************************************
+1106:                    // mask value in r0, return 1 if is a line, 0 if not.
+1107:                    // preserve other registers
+1108:                    is_line:
+1109: 03CB C9              push    r1;
+1110: 03CC CA              push    r2;
+1111:                    
+1112: 03CD 01              move    r1,r0;
+1113: 03CE D2 07 00        ld.w    r2,#LINE_H_TOP;
+1114: 03D1 19              and     r1,r2;
+1115: 03D2 79              cmp     r1,r2;
+1116: 03D3 E7 3C           beq     il_1;
+1117:                    
+1118: 03D5 01              move    r1,r0;
+1119: 03D6 D2 38 00        ld.w    r2,#LINE_H_MID;
+1120: 03D9 19              and     r1,r2;
+1121: 03DA 79              cmp     r1,r2;
+1122: 03DB E7 34           beq     il_1;
+1123:                    
+1124: 03DD 01              move    r1,r0;
+1125: 03DE D2 C0 01        ld.w    r2,#LINE_H_BOT;
+1126: 03E1 19              and     r1,r2;
+1127: 03E2 79              cmp     r1,r2;
+1128: 03E3 E7 2C           beq     il_1;
+1129:                    
+1130: 03E5 01              move    r1,r0;
+1131: 03E6 D2 49 00        ld.w    r2,#LINE_V_LFT;
+1132: 03E9 19              and     r1,r2;
+1133: 03EA 79              cmp     r1,r2;
+1134: 03EB E7 24           beq     il_1;
+1135:                    
+1136: 03ED 01              move    r1,r0;
+1137: 03EE D2 92 00        ld.w    r2,#LINE_V_MID;
+1138: 03F1 19              and     r1,r2;
+1139: 03F2 79              cmp     r1,r2;
+1140: 03F3 E7 1C           beq     il_1;
+1141:                    
+1142: 03F5 01              move    r1,r0;
+1143: 03F6 D2 24 01        ld.w    r2,#LINE_V_RGT;
+1144: 03F9 19              and     r1,r2;
+1145: 03FA 79              cmp     r1,r2;
+1146: 03FB E7 14           beq     il_1;
+1147:                    
+1148: 03FD 01              move    r1,r0;
+1149: 03FE D2 11 01        ld.w    r2,#LINE_D_LFT;
+1150: 0401 19              and     r1,r2;
+1151: 0402 79              cmp     r1,r2;
+1152: 0403 E7 0C           beq     il_1;
+1153:                    
+1154: 0405 01              move    r1,r0;
+1155: 0406 D2 54 00        ld.w    r2,#LINE_D_RGT;
+1156: 0409 19              and     r1,r2;
+1157: 040A 79              cmp     r1,r2;
+1158: 040B E7 04           beq     il_1;
+1159:                    
+1160:                    // no matches
+1161: 040D 20              clr     r0;
+1162:                    il_2:
+1163: 040E C2              pop     r2;
+1164: 040F C1              pop     r1;
+1165: 0410 C6              ret;
+1166:                    
+1167:                    il_1:
+1168: 0411 D4 01           ld.b    r0,#1;
+1169: 0413 F3 0E 04        jmp     il_2;
+1170:                    
+1171:                    // *******************************************************
+1172:                    
