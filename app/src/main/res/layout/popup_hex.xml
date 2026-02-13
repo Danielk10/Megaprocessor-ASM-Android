@@ -9,10 +9,10 @@
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="16dp"
+        android:layout_margin="0dp"
         app:cardBackgroundColor="@color/surface"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="12dp">
+        app:cardCornerRadius="0dp"
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -24,7 +24,7 @@
                 android:id="@+id/popup_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingBottom="4dp"
+                android:paddingBottom="8dp"
                 android:text="@string/title_generated_hex"
                 android:textColor="@color/primary"
                 android:textSize="22sp"
@@ -33,10 +33,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingBottom="12dp"
+                android:paddingBottom="16dp"
                 android:text="Resultado del ensamblado. Puedes copiar o exportar este contenido."
                 android:textColor="@color/on_surface"
-                android:textSize="13sp" />
+                android:textSize="13sp"
+                android:lineSpacingExtra="2dp" />
 
             <ScrollView
                 android:id="@+id/scrollHex"
@@ -60,7 +61,8 @@
                         android:padding="12dp"
                         android:scrollHorizontally="true"
                         android:textColor="@color/on_surface"
-                        android:textSize="14sp" />
+                        android:textSize="14sp"
+                        android:textIsSelectable="true" />
                 </HorizontalScrollView>
             </ScrollView>
 
@@ -75,36 +77,52 @@
                     android:id="@+id/btnCopyHexPopup"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:text="@string/btn_copy_hex"
-                    android:textAllCaps="false"
-                    app:icon="@android:drawable/ic_menu_edit" />
+                    android:layout_marginEnd="8dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    app:icon="@android:drawable/ic_menu_edit"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp" />
 
                 <Button
                     android:id="@+id/btnExportPopup"
                     style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
-                    android:text="@string/btn_export_popup"
-                    android:textAllCaps="false"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
                     app:backgroundTint="@color/accent"
-                    app:icon="@android:drawable/ic_menu_save" />
+                    app:icon="@android:drawable/ic_menu_save"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp" />
 
                 <Button
                     android:id="@+id/btnClosePopup"
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="56dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:text="@string/btn_close"
-                    android:textAllCaps="false"
-                    android:textColor="@color/primary" />
+                    android:layout_marginStart="8dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:iconTint="@color/primary" />
             </LinearLayout>
 
         </LinearLayout>
