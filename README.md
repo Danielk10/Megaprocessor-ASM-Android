@@ -2,11 +2,13 @@
 
 **Ensamblador de código abierto para el Megaprocessor - Versión Android Native (NDK/C++)**
 
+[![Android](https://img.shields.io/badge/Android-6.0%20(API%2023)%20a%20Android%2017%20(API%2037)-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![Target SDK](https://img.shields.io/badge/Target%20SDK-API%2037%20(Android%2017)-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![AGP](https://img.shields.io/badge/AGP-9.2.1-blue?logo=android)](https://developer.android.com/studio/releases/gradle-plugin)
+[![Gradle](https://img.shields.io/badge/Gradle-9.6.0-02303A?logo=gradle&logoColor=white)](https://gradle.org/)
+[![NDK](https://img.shields.io/badge/NDK-r30--rc1-4CAF50?logo=android&logoColor=white)](https://developer.android.com/ndk)
+[![CMake](https://img.shields.io/badge/CMake-4.1.2-064F8C.svg)](https://cmake.org/)
 [![Licencia](https://img.shields.io/badge/Licencia-Apache%202.0-blue.svg)](LICENSE)
-[![Lenguaje](https://img.shields.io/badge/Lenguaje-C%2B%2B-00599C.svg)](https://isocpp.org/)
-[![Plataforma](https://img.shields.io/badge/Plataforma-Android-3DDC84.svg)](https://developer.android.com/ndk)
-[![Build System](https://img.shields.io/badge/Build-CMake%20%2B%20Gradle-064F8C.svg)](https://cmake.org/)
-[![API Level](https://img.shields.io/badge/API-23%2B-brightgreen.svg)](https://developer.android.com/studio/releases/platforms)
 
 ## 📋 Descripción
 
@@ -30,7 +32,7 @@ Esta aplicación utiliza **Android NDK** para ejecutar el ensamblador en código
 - 💾 **Gestión de archivos**: Lectura/escritura de archivos .asm en almacenamiento
 - 📝 **Editor integrado**: Permite editar código assembly directamente
 - 🔍 **Visualización de resultados**: Muestra archivos .hex y .lst generados
-- 🎯 **API 23+**: Compatible con Android 6.0 Marshmallow en adelante
+- 🎯 **API 23+**: Compatible con Android 6.0 Marshmallow en adelante (Target SDK 37 / Android 17)
 - 🌗 **Modo oscuro automático**: Soporte Day/Night según el tema del sistema
 - 🔗 **Integración web**: Acceso rápido a documentación y sitio del Megaprocessor
 - 📤 **Compartir proyecto**: Permite compartir ASM/HEX/LST desde la app
@@ -48,14 +50,27 @@ Para más información sobre el Megaprocessor, visita: http://www.megaprocessor.
 
 ## 🚀 Compilación y Ejecución
 
-### Requisitos
+### Especificaciones Técnicas
+- **Android SDK:** Compile SDK 37 / Target SDK 37 / Min SDK 23
+- **Android Build Tools:** 37.0.0
+- **Android NDK:** 30.0.14904198 rc1
+- **CMake:** 4.1.2
+- **Android Gradle Plugin (AGP):** 9.2.1
+- **Gradle:** 9.6.0 (Gradle Wrapper)
+- **Firma Release:** Configurada vía `keystore.properties` (y variables de entorno para CI/CD).
+- **Ruta de compilación:** Redirigida a `/tmp/calculo` para mantener limpio el repositorio.
 
-- **Android Studio**: Arctic Fox (2020.3.1) o superior
-- **Android SDK**: API Level 23 (Android 6.0) mínimo, API Level 36 target
-- **Android NDK**: r21 o superior (automático con Android Studio)
-- **CMake**: 3.22.1 o superior (incluido con Android Studio)
-- **Java**: JDK 11 o superior
-- **Gradle**: 8.0+ (incluido con el proyecto)
+### Preparación del SDK:
+```bash
+bash setup-sdk.sh
+```
+
+### Compilación con Gradle:
+- **APK Debug:** `./gradlew assembleDebug` (Salida: `/tmp/calculo/outputs/apk/debug/app-debug.apk`)
+- **APK Release firmado:** `./gradlew assembleRelease` (Salida: `/tmp/calculo/outputs/apk/release/app-release.apk`)
+- **AAB Release firmado (Play Store):** `./gradlew bundleRelease` (Salida: `/tmp/calculo/outputs/bundle/release/app-release.aab`)
+
+Consulta [GEMINI.md](GEMINI.md) para más detalles técnicos de compilación y firma.
 
 ### Clonar el Repositorio
 
