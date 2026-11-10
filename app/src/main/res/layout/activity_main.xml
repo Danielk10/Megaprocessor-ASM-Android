@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/background"
     tools:context=".MainActivity">
 
@@ -18,141 +19,154 @@
             app:titleTextColor="@color/on_primary" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tabLayout"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/primary_variant"
-            app:tabIndicatorColor="@color/accent"
-            app:tabMode="scrollable"
-            app:tabSelectedTextColor="@color/accent"
-            app:tabTextColor="@color/on_primary"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#44000000"
-            android:gravity="center"
-            android:padding="4dp"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/tabLayout"
-            tools:text="Mensaje de estado"
-            tools:visibility="visible" />
-
-        <ScrollView
-            android:id="@+id/editorScroll"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:background="@color/surface"
-            android:fillViewport="true"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvStatus">
-
-            <HorizontalScrollView
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:scrollbars="horizontal">
+                android:background="@color/primary_variant"
+                app:tabIndicatorColor="@color/accent"
+                app:tabMode="scrollable"
+                app:tabSelectedTextColor="@color/accent"
+                app:tabTextColor="@color/on_primary"
+                app:layout_constraintTop_toTopOf="parent" />
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#44000000"
+                android:gravity="center"
+                android:padding="4dp"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/tabLayout"
+                tools:text="Mensaje de estado"
+                tools:visibility="visible" />
+
+            <ScrollView
+                android:id="@+id/editorScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:background="@color/surface"
+                android:fillViewport="true"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvStatus">
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:scrollbars="horizontal">
 
-                    <TextView
-                        android:id="@+id/tvLineNumbers"
+                    <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:background="@color/line_numbers_bg"
-                        android:fontFamily="monospace"
-                        android:gravity="top|end"
-                        android:paddingStart="8dp"
-                        android:paddingTop="12dp"
-                        android:paddingEnd="8dp"
-                        android:text="1"
-                        android:textColor="@color/line_numbers_text"
-                        android:textSize="14sp" />
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
 
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
-                        android:background="@color/line_numbers_divider" />
+                        <TextView
+                            android:id="@+id/tvLineNumbers"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:background="@color/line_numbers_bg"
+                            android:fontFamily="monospace"
+                            android:gravity="top|end"
+                            android:paddingStart="8dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="8dp"
+                            android:text="1"
+                            android:textColor="@color/line_numbers_text"
+                            android:textSize="14sp" />
 
-                    <EditText
-                        android:id="@+id/etSourceCode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:minWidth="1000dp"
-                        android:background="@android:color/transparent"
-                        android:fontFamily="monospace"
-                        android:gravity="top|start"
-                        android:hint="@string/hint_editor"
-                        android:inputType="textMultiLine|textNoSuggestions"
-                        android:padding="12dp"
-                        android:textColor="@color/on_surface"
-                        android:textSize="14sp" />
-                </LinearLayout>
-            </HorizontalScrollView>
-        </ScrollView>
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="@color/line_numbers_divider" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                        <EditText
+                            android:id="@+id/etSourceCode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:minWidth="1000dp"
+                            android:background="@android:color/transparent"
+                            android:fontFamily="monospace"
+                            android:gravity="top|start"
+                            android:hint="@string/hint_editor"
+                            android:inputType="textMultiLine|textNoSuggestions"
+                            android:padding="12dp"
+                            android:textColor="@color/on_surface"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+                </HorizontalScrollView>
+            </ScrollView>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabOfficialSite"
-        android:layout_width="wrap_content"
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabOfficialSite"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="232dp"
+            android:contentDescription="@string/btn_official_site"
+            android:src="@android:drawable/ic_menu_info_details"
+            app:backgroundTint="@color/surface"
+            app:elevation="6dp"
+            app:tint="@color/primary" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabWebSimulator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="160dp"
+            android:contentDescription="@string/btn_web_sim"
+            android:src="@android:drawable/ic_menu_compass"
+            app:backgroundTint="@color/surface"
+            app:elevation="6dp"
+            app:tint="@color/primary" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabClear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="88dp"
+            android:contentDescription="@string/btn_clear"
+            android:src="@android:drawable/ic_menu_delete"
+            app:backgroundTint="@color/surface"
+            app:elevation="6dp"
+            app:tint="@color/primary" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabAssemble"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:src="@android:drawable/ic_media_play"
+            app:backgroundTint="@color/accent"
+            app:elevation="6dp"
+            app:tint="@color/on_accent" />
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <FrameLayout
+        android:id="@+id/adContainer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="232dp"
-        android:contentDescription="@string/btn_official_site"
-        android:src="@android:drawable/ic_menu_info_details"
-        app:backgroundTint="@color/surface"
-        app:elevation="6dp"
-        app:tint="@color/primary" />
+        android:background="@color/surface"
+        android:visibility="gone" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabWebSimulator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="160dp"
-        android:contentDescription="@string/btn_web_sim"
-        android:src="@android:drawable/ic_menu_compass"
-        app:backgroundTint="@color/surface"
-        app:elevation="6dp"
-        app:tint="@color/primary" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabClear"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="88dp"
-        android:contentDescription="@string/btn_clear"
-        android:src="@android:drawable/ic_menu_delete"
-        app:backgroundTint="@color/surface"
-        app:elevation="6dp"
-        app:tint="@color/primary" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAssemble"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_media_play"
-        app:backgroundTint="@color/accent"
-        app:elevation="6dp"
-        app:tint="@color/on_accent" />
-
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</LinearLayout>

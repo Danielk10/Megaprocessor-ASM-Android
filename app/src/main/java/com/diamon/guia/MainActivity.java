@@ -40,6 +40,8 @@ import android.app.AlertDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 
+import com.diamon.guia.ads.AdsManager;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import java.io.InputStream;
@@ -75,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private Handler mainHandler;
     private FloatingActionButton fabAssemble, fabClear, fabWebSimulator, fabOfficialSite;
     private TabLayout tabLayout;
+    private AdsManager adsManager;
 
     // Gestión de pestañas: Nombre del archivo -> Contenido (Cacheando Spannables
     // para rendimiento)
@@ -110,6 +113,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        adsManager = new AdsManager(this, findViewById(R.id.adContainer));
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -171,6 +176,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem privacyOptions = menu.findItem(R.id.action_privacy_options);
+        if (privacyOptions != null) {
+            privacyOptions.setVisible(adsManager != null
+                    && adsManager.isPrivacyOptionsRequired());
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_new_tab) {
@@ -190,6 +205,11 @@ public class MainActivity extends AppCompatActivity {
             return true;
         } else if (id == R.id.action_privacy) {
             startActivity(new Intent(this, PrivacyPolicyActivity.class));
+            return true;
+        } else if (id == R.id.action_privacy_options) {
+            if (adsManager != null) {
+                adsManager.showPrivacyOptions();
+            }
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -372,6 +392,9 @@ public class MainActivity extends AppCompatActivity {
 
                     mainHandler.post(() -> {
                         setStatus(getString(R.string.status_success), false);
+                        if (adsManager != null) {
+                            adsManager.maybeShowInterstitial();
+                        }
                         showHexPopup(colorizedHex);
                     });
                 }
@@ -835,8 +858,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (adsManager != null) {
+            adsManager.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (adsManager != null) {
+            adsManager.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (adsManager != null) {
+            adsManager.onDestroy();
+        }
         if (executorService != null)
             executorService.shutdown();
     }

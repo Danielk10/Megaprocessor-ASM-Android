@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Megaprocessor ASM Android</string>
+    <string name="admob_app_id">ca-app-pub-5141499161332805~9440816228</string>
     <string name="btn_assemble">Ensamblar</string>
     <string name="btn_export">Exportar</string>
     <string name="btn_share">Compartir</string>
@@ -14,6 +15,7 @@
     <string name="hint_editor">// Escribe aquí tu código assembly o carga un ejemplo</string>
     <string name="menu_licenses">Licencias</string>
     <string name="menu_privacy">Política de Privacidad</string>
+    <string name="menu_privacy_options">Opciones de privacidad</string>
     <string name="menu_about">Acerca de</string>
     <string name="menu_project_info">Proyecto original</string>
     <string name="title_generated_hex">Código HEX Generado</string>

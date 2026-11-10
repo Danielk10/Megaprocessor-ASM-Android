@@ -21,10 +21,10 @@ android {
 
     defaultConfig {
         applicationId "com.diamon.guia"
-        minSdk 23
+        minSdk 24
         targetSdk 37
-        versionCode 10011
-        versionName "1.2.0"
+        versionCode 10012
+        versionName "1.3.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -79,6 +79,13 @@ dependencies {
     implementation libs.appcompat
     implementation libs.material
     implementation libs.constraintlayout
+    implementation libs.play.services.ads
+    // Consentimiento de privacidad (RGPD / normativas estatales de EE. UU.)
+    implementation libs.user.messaging.platform
+    // play-services-ads 25.5.0 arrastra hsdp 2.0.1, que lanza
+    // "targetPackageName is null" en HsdpShimActivity. 2.2.0 cierra la
+    // actividad limpiamente cuando el intent no trae los extras.
+    implementation libs.hsdp
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
