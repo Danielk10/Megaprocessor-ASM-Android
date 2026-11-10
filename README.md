@@ -2,9 +2,10 @@
 
 **Ensamblador de código abierto para el Megaprocessor - Versión Android Native (NDK/C++)**
 
-[![Android](https://img.shields.io/badge/Android-6.0%20(API%2023)%20a%20Android%2017%20(API%2037)-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![Release](https://img.shields.io/badge/Release-v1.3.0-007ACC?logo=github&logoColor=white)](https://github.com/Danielk10/Megaprocessor-ASM-Android/releases/tag/v1.3.0)
+[![Android](https://img.shields.io/badge/Android-7.0%20(API%2024)%20a%20Android%2017%20(API%2037)-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
 [![Target SDK](https://img.shields.io/badge/Target%20SDK-API%2037%20(Android%2017)-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
-[![AGP](https://img.shields.io/badge/AGP-9.2.1-blue?logo=android)](https://developer.android.com/studio/releases/gradle-plugin)
+[![AGP](https://img.shields.io/badge/AGP-9.5.1-blue?logo=android)](https://developer.android.com/studio/releases/gradle-plugin)
 [![Gradle](https://img.shields.io/badge/Gradle-9.6.0-02303A?logo=gradle&logoColor=white)](https://gradle.org/)
 [![NDK](https://img.shields.io/badge/NDK-r30--rc1-4CAF50?logo=android&logoColor=white)](https://developer.android.com/ndk)
 [![CMake](https://img.shields.io/badge/CMake-4.1.2-064F8C.svg)](https://cmake.org/)
@@ -51,12 +52,15 @@ Para más información sobre el Megaprocessor, visita: http://www.megaprocessor.
 ## 🚀 Compilación y Ejecución
 
 ### Especificaciones Técnicas
-- **Android SDK:** Compile SDK 37 / Target SDK 37 / Min SDK 23
+- **Versión de la app:** 1.3.0 (versionCode 10012)
+- **Android SDK:** Compile SDK 37 / Target SDK 37 / Min SDK 24
 - **Android Build Tools:** 37.0.0
 - **Android NDK:** 30.0.14904198 rc1
 - **CMake:** 4.1.2
-- **Android Gradle Plugin (AGP):** 9.2.1
+- **Android Gradle Plugin (AGP):** 9.5.1
 - **Gradle:** 9.6.0 (Gradle Wrapper)
+- **Dependencias Android:** AppCompat 1.8.0, Material 1.14.0, ConstraintLayout 2.2.2
+- **Publicidad:** Google AdMob `play-services-ads` 25.5.0, UMP 4.0.0, `hsdp` 2.2.0
 - **Firma Release:** Configurada vía `keystore.properties` (y variables de entorno para CI/CD).
 - **Ruta de compilación:** Redirigida a `/tmp/calculo` para mantener limpio el repositorio.
 
@@ -235,11 +239,11 @@ Megaprocessor-ASM-Android/
 - **Lenguaje**: Java (puede migrar a Kotlin)
 - **UI**: XML Layouts + ViewBinding
 - **Material Design**: AndroidX Material Components
-- **API Level**: minSdk 23, targetSdk 36
+- **API Level**: minSdk 24, targetSdk 37
 
 **Backend Nativo (NDK):**
 - **Lenguaje**: C++ (estándar C++11)
-- **Build System**: CMake 3.22.1
+- **Build System**: CMake 4.1.2
 - **JNI**: Bridge para comunicación Java ↔ C++
 - **Compilador**: Clang (incluido con NDK)
 
