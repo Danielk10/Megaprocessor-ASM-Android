@@ -33,7 +33,7 @@ Esta aplicación utiliza **Android NDK** para ejecutar el ensamblador en código
 - 💾 **Gestión de archivos**: Lectura/escritura de archivos .asm en almacenamiento
 - 📝 **Editor integrado**: Permite editar código assembly directamente
 - 🔍 **Visualización de resultados**: Muestra archivos .hex y .lst generados
-- 🎯 **API 23+**: Compatible con Android 6.0 Marshmallow en adelante (Target SDK 37 / Android 17)
+- 🎯 **API 24+**: Compatible con Android 7.0 Nougat en adelante (Target SDK 37 / Android 17)
 - 🌗 **Modo oscuro automático**: Soporte Day/Night según el tema del sistema
 - 🔗 **Integración web**: Acceso rápido a documentación y sitio del Megaprocessor
 - 📤 **Compartir proyecto**: Permite compartir ASM/HEX/LST desde la app
@@ -177,7 +177,7 @@ El ejecutable carga automáticamente `Megaprocessor_defs.asm` si está disponibl
 
 Notas sobre exportación en Android:
 - En Android 10+ (API 29+) se usa `MediaStore` para guardar en **Descargas** sin permisos de almacenamiento legados.
-- En Android 6–9 (API 23–28), la app solicita permiso de escritura al exportar por primera vez.
+- En Android 7–9 (API 24–28), la app solicita permiso de escritura al exportar por primera vez.
 - Los archivos se guardan con nombres tipo `<nombre_pestaña>.hex` y `<nombre_pestaña>.lst` para evitar sobreescrituras.
 
 ### Ejemplo de Código Assembly
